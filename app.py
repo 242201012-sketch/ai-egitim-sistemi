@@ -1,376 +1,149 @@
+from openai import OpenAI
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam
+)
+
+client = OpenAI(api_key="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")
+
+
+def evaluate_answer(
+    question: str,
+    correct_answer: str,
+    user_answer: str
+) -> str:
+
+    messages: list[
+        ChatCompletionSystemMessageParam
+        | ChatCompletionUserMessageParam
+    ] = [
+
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content="""
+            Öğrenci cevabını değerlendir.
+
+            Şunları belirt:
+
+            - Doğru / Kısmen Doğru / Yanlış
+            - Kısa açıklama
+            - Eksik olduğu nokta
+
+            Maksimum 3 cümle yaz.
+            """
+        ),
+
+        ChatCompletionUserMessageParam(
+            role="user",
+            content=f"""
+            Soru:
+            {question}
+
+            Doğru cevap:
+            {correct_answer}
+
+            Öğrenci cevabı:
+            {user_answer}
+            """
+        )
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=messages
+    )
+
+    return response.choices[0].message.content or "Geri bildirim alınamadı."
+
+
+def generate_ai_question(level: str = "easy") -> str:
+
+    messages: list[
+        ChatCompletionSystemMessageParam
+    ] = [
+
+        ChatCompletionSystemMessageParam(
+            role="system",
+            content=f"""
+            {level} seviyesinde
+            1 adet çoktan seçmeli soru üret.
+
+            Format:
+
+            Soru: ...
+
+            A) ...
+            B) ...
+            C) ...
+            D) ...
+
+            Doğru: A
+            """
+        )
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=messages
+    )
+
+    return response.choices[0].message.content or "Soru üretilemedi."
+
 from flask import (
     Flask,
     render_template,
-    request,
-    jsonify,
-    redirect,
-    session
+    session, redirect,
 )
 
-from openai import OpenAI
-
-import sqlite3
 import os
-import re
+
+
 
 app = Flask(__name__)
 
-app.secret_key = "secret123"
 
-# OPENAI CLIENT
-client = OpenAI(
-    api_key=os.getenv("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")
-)
+def create_graph():
+    pass
 
-# SCORE
-score = 0
 
-ai_question_data = {
-
-    "question": "",
-
-    "options": [],
-
-    "answer": ""
-}
-
-def generate_ai_question(level="easy"):
-
-    response = client.chat.completions.create(
-
-        model="gpt-4.1-mini",
-
-        messages=[
-
-            {
-                "role": "system",
-
-                "content":
-
-                f"""
-                {level} seviyesinde
-                1 adet çoktan seçmeli soru üret.
-
-                ŞU FORMATTA ÜRET:
-
-                Soru: ...
-
-                A) ...
-                B) ...
-                C) ...
-                D) ...
-
-                Doğru: A
-
-                SADECE BU FORMATI KULLAN.
-                """
-            }
-        ]
-    )
-
-    text = response.choices[0].message.content
-
-    question_match = re.search(
-
-        r"Soru:(.*?)(A\))",
-
-        text,
-
-        re.S
-    )
-
-    options = re.findall(
-
-        r"([A-D]\).*?)\n",
-
-        text
-    )
-
-    answer_match = re.search(
-
-        r"Doğru:\s*([A-D])",
-
-        text
-    )
-
-    question = ""
-
-    if question_match:
-
-        question = question_match.group(1).strip()
-
-    correct_answer = ""
-
-    if answer_match:
-
-        correct_answer = answer_match.group(1)
-
-    return {
-
-        "question": question,
-
-        "options": options,
-
-        "answer": correct_answer
-    }
-
-
-
-# REGISTER
-@app.route("/register", methods=["GET", "POST"])
-def register():
-
-    if request.method == "POST":
-
-        username = request.form["username"]
-
-        password = request.form["password"]
-
-        conn = sqlite3.connect("database.db")
-
-        cursor = conn.cursor()
-
-        try:
-
-            cursor.execute(
-
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-
-                (username, password)
-            )
-
-            conn.commit()
-
-            conn.close()
-
-            return redirect("/login")
-
-        except:
-
-            conn.close()
-
-            return "Kullanıcı zaten var"
-
-    return render_template("register.html")
-
-
-# LOGIN
-@app.route("/login", methods=["GET", "POST"])
-def login():
-
-    if request.method == "POST":
-
-        username = request.form["username"]
-
-        password = request.form["password"]
-
-        conn = sqlite3.connect("database.db")
-
-        cursor = conn.cursor()
-
-        cursor.execute(
-
-            "SELECT * FROM users WHERE username=? AND password=?",
-
-            (username, password)
-        )
-
-        user = cursor.fetchone()
-
-        conn.close()
-
-        if user:
-
-            session["username"] = username
-
-            session["score"] = user[3]
-
-            return redirect("/")
-
-        return "Hatalı giriş"
-
-    return render_template("login.html")
-
-
-# LOGOUT
-@app.route("/logout")
-def logout():
-
-    session.clear()
-
-    return redirect("/login")
-
-
-# HOME
 @app.route("/")
 def index():
-
-    global ai_question_data
 
     if "username" not in session:
 
         return redirect("/login")
 
-    if ai_question_data == "":
+    graph_exists = os.path.exists(
+        "static/graph.png"
+    )
 
-        ai_question_data = generate_ai_question()
+    global ai_question_data
+
+    ai_question_data = generate_ai_question(
+        "easy"
+    )
+
+    create_graph()
 
     return render_template(
 
         "index.html",
 
         question=ai_question_data["question"],
-        options=ai_question_data["options"]
+
+        options=ai_question_data["options"],
+
+        username=session["username"],
+
+        graph_exists=graph_exists
     )
 
 
-# ANSWER
-@app.route("/answer", methods=["POST"])
-def answer():
-
-    global score
-    global ai_question_data
-
-    user_answer = request.form.get("answer", "")
-
-    question = ai_question_data
-
-    correct_answer = ai_question_data["answer"]
-
-    feedback = evaluate_answer(
-
-        question,
-        correct_answer,
-        user_answer
-    )
-
-    feedback_lower = feedback.lower()
-
-    if "doğru" in feedback_lower:
-
-        score += 10
-
-        conn = sqlite3.connect("database.db")
-
-        cursor = conn.cursor()
-
-        cursor.execute(
-
-            "UPDATE users SET score = score + 10 WHERE username=?",
-
-            (session["username"],)
-        )
-
-        conn.commit()
-
-        conn.close()
-
-    elif "kısmen" in feedback_lower:
-
-        score += 5
-
-        conn = sqlite3.connect("database.db")
-
-        cursor = conn.cursor()
-
-        cursor.execute(
-
-            "UPDATE users SET score = score + 5 WHERE username=?",
-
-            (session["username"],)
-        )
-
-        conn.commit()
-
-        conn.close()
-
-    # NEW AI QUESTION
-    if score < 20:
-        level = "easy"
-
-    elif score < 50:
-        level = "medium"
-
-    else:
-        level = "hard"
-
-    ai_question_data = generate_ai_question(level)
-
-    return jsonify({
-
-        "feedback": feedback,
-
-        "score": score,
-
-        "next_question": ai_question_data
-    })
-
-
-# LEADERBOARD
-@app.route("/leaderboard")
-def leaderboard():
-
-    conn = sqlite3.connect("database.db")
-
-    cursor = conn.cursor()
-
-    cursor.execute("""
-
-        SELECT username, score
-
-        FROM users
-
-        ORDER BY score DESC
-
-    """)
-
-    users = cursor.fetchall()
-
-    conn.close()
-
-    return render_template(
-
-        "leaderboard.html",
-
-        users=users
-    )
-
-# DATABASE FUNCTION
-def init_db():
-
-    conn = sqlite3.connect("database.db")
-
-    cursor = conn.cursor()
-
-    cursor.execute("""
-
-        CREATE TABLE IF NOT EXISTS users (
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-            username TEXT,
-
-            password TEXT,
-
-            score INTEGER DEFAULT 0
-
-        )
-
-    """)
-
-    conn.commit()
-
-    conn.close()
-
-
-# INIT DATABASE
-init_db()
-
-
-# START APP
 if __name__ == "__main__":
 
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
 
-
-
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
