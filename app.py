@@ -335,10 +335,42 @@ def leaderboard():
         users=users
     )
 
+# DATABASE FUNCTION
+def init_db():
 
-# START
+    conn = sqlite3.connect("database.db")
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+
+        CREATE TABLE IF NOT EXISTS users (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            username TEXT,
+
+            password TEXT,
+
+            score INTEGER DEFAULT 0
+
+        )
+
+    """)
+
+    conn.commit()
+
+    conn.close()
+
+
+# INIT DATABASE
 init_db()
 
+
+# START APP
 if __name__ == "__main__":
 
-    app.run(debug=True)
+    app.run()
+
+
+
