@@ -7,12 +7,21 @@ from flask import (
     jsonify
 )
 
+from openai import OpenAI
+
 import sqlite3
 import os
+import re
 
 app = Flask(__name__)
 
 app.secret_key = "secret123"
+
+
+# OPENAI
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 
 # DATABASE
@@ -41,6 +50,98 @@ def init_db():
     conn.close()
 
 
+# AI QUESTION GENERATOR
+def generate_ai_question():
+
+    try:
+
+        response = client.chat.completions.create(
+
+            model="gpt-4.1-mini",
+
+            messages=[
+
+                {
+                    "role": "system",
+
+                    "content":
+                    """
+                    1 adet kolay seviyede
+                    çoktan seçmeli soru üret.
+
+                    Format:
+
+                    Soru: ...
+
+                    A) ...
+                    B) ...
+                    C) ...
+                    D) ...
+
+                    Doğru: B
+                    """
+                }
+            ]
+        )
+
+        text = response.choices[0].message.content
+
+        question_match = re.search(
+            r"Soru:(.*?)(A\))",
+            text,
+            re.S
+        )
+
+        options = re.findall(
+            r"[A-D]\)\s.*",
+            text
+        )
+
+        answer_match = re.search(
+            r"Doğru:\s*([A-D])",
+            text
+        )
+
+        question = "Soru oluşturulamadı."
+
+        if question_match:
+
+            question = question_match.group(1).strip()
+
+        correct_answer = "B"
+
+        if answer_match:
+
+            correct_answer = answer_match.group(1)
+
+        return {
+
+            "question": question,
+
+            "options": options,
+
+            "answer": correct_answer
+        }
+
+    except Exception as error:
+
+        print("AI ERROR:", error)
+
+        return {
+
+            "question": "2 + 2 kaç eder?",
+
+            "options": [
+                "A) 3",
+                "B) 4",
+                "C) 5",
+                "D) 22"
+            ],
+
+            "answer": "B"
+        }
+
+
 # HOME
 @app.route("/")
 def home():
@@ -49,14 +150,13 @@ def home():
 
         return redirect("/login")
 
-    question = "2 + 2 kaç eder?"
+    ai_question = generate_ai_question()
 
-    options = [
-        "3",
-        "4",
-        "5",
-        "22"
-    ]
+    question = ai_question["question"]
+
+    options = ai_question["options"]
+
+    session["correct_answer"] = ai_question["answer"]
 
     return render_template(
 
@@ -121,17 +221,23 @@ def answer():
     if "username" not in session:
 
         return jsonify({
+
             "feedback": "Giriş yapmalısınız.",
+
             "score": 0
         })
 
     user_answer = request.form.get("answer")
 
+    correct_answer = session.get("correct_answer")
+
     score = 0
 
     feedback = "Yanlış ❌"
 
-    if user_answer == "4":
+    selected_letter = user_answer[0]
+
+    if selected_letter == correct_answer:
 
         feedback = "Doğru cevap ✅"
 
