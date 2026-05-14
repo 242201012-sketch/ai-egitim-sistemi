@@ -14,24 +14,35 @@ from openai.types.chat import (
 )
 
 import sqlite3
+import random
 import os
-import re
+
+from datetime import datetime
+
+# ==================================================
+# FLASK
+# ==================================================
 
 app = Flask(__name__)
 
-app.secret_key = "secret123"
+app.secret_key = "super_secret_key"
 
+DATABASE = "database.db"
 
 # OPENAI CLIENT
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
-)
+ADMIN_PASSWORD = "1234"
 
 
+# ==================================================
 # DATABASE
-def init_db():
+# ==================================================
 
-    conn = sqlite3.connect("database.db")
+def init_db():
+    conn = sqlite3.connect(
+        DATABASE
+    )
 
     cursor = conn.cursor()
 
@@ -43,8 +54,9 @@ def init_db():
 
             username TEXT UNIQUE,
 
-            score INTEGER DEFAULT 0
+            score INTEGER DEFAULT 0,
 
+            last_reward TEXT
         )
 
     """)
@@ -54,171 +66,261 @@ def init_db():
     conn.close()
 
 
-# AI QUESTION GENERATOR
-def generate_ai_question():
+init_db()
 
-    try:
+# ==================================================
+# QUESTIONS
+# ==================================================
 
-        messages: list[
-            ChatCompletionSystemMessageParam
-        ] = [
+QUESTIONS = [
 
-            ChatCompletionSystemMessageParam(
+    {
+        "question":
+            "Türkiye'nin başkenti neresidir?",
 
-                role="system",
+        "options": [
 
-                content="""
-                1 adet kolay seviyede
-                çoktan seçmeli soru üret.
+            "İstanbul",
 
-                Format:
+            "Ankara",
 
-                Soru: ...
+            "İzmir",
 
-                A) ...
-                B) ...
-                C) ...
-                D) ...
+            "Bursa"
+        ],
 
-                Doğru: B
-                """
-            )
-        ]
+        "answer":
+            "Ankara"
+    },
 
-        response = client.chat.completions.create(
+    {
+        "question":
+            "5 x 5 kaçtır?",
 
-            model="gpt-4.1-mini",
+        "options": [
 
-            messages=messages
-        )
+            "10",
 
-        text = (
-            response
-            .choices[0]
-            .message
-            .content
-        )
+            "15",
 
-        if text is None:
+            "20",
 
-            raise ValueError(
-                "AI response is empty"
-            )
+            "25"
+        ],
 
-        question_match = re.search(
-            r"Soru:(.*?)(A\))",
-            text,
-            re.S
-        )
+        "answer":
+            "25"
+    },
 
-        options = re.findall(
-            r"[A-D]\)\s.*",
-            text
-        )
+    {
+        "question":
+            "Python nedir?",
 
-        answer_match = re.search(
-            r"Doğru:\s*([A-D])",
-            text
-        )
+        "options": [
 
-        question = "Soru oluşturulamadı."
+            "Programlama dili",
 
-        if question_match:
+            "Tarayıcı",
 
-            question = (
-                question_match
-                .group(1)
-                .strip()
-            )
+            "Oyun",
 
-        correct_answer = "B"
+            "Robot"
+        ],
 
-        if answer_match:
+        "answer":
+            "Programlama dili"
+    },
 
-            correct_answer = (
-                answer_match.group(1)
-            )
+    {
+        "question":
+            "Dünyanın en büyük okyanusu hangisidir?",
 
-        return {
+        "options": [
 
-            "question": question,
+            "Atlas",
 
-            "options": options,
+            "Hint",
 
-            "answer": correct_answer
-        }
+            "Pasifik",
 
-    except Exception as error:
+            "Arktik"
+        ],
 
-        print("AI ERROR:", error)
+        "answer":
+            "Pasifik"
+    }
 
-        return {
-
-            "question":
-            "2 + 2 kaç eder?",
-
-            "options": [
-                "A) 3",
-                "B) 4",
-                "C) 5",
-                "D) 22"
-            ],
-
-            "answer": "B"
-        }
+]
 
 
-# HOME
-@app.route("/")
-def home():
+# ==================================================
+# RANDOM QUESTION
+# ==================================================
 
-    if "username" not in session:
-
-        return redirect("/login")
-
-    ai_question = generate_ai_question()
-
-    question = ai_question["question"]
-
-    options = ai_question["options"]
-
-    session["correct_answer"] = (
-        ai_question["answer"]
-    )
-
-    return render_template(
-
-        "index.html",
-
-        username=session["username"],
-
-        question=question,
-
-        options=options
+def get_question():
+    return random.choice(
+        QUESTIONS
     )
 
 
+# ==================================================
+# LEVEL SYSTEM
+# ==================================================
+
+def get_level(score):
+    if score >= 500:
+
+        return "Diamond 💎"
+
+    elif score >= 300:
+
+        return "Platinum 🏆"
+
+    elif score >= 150:
+
+        return "Gold 🥇"
+
+    elif score >= 50:
+
+        return "Silver 🥈"
+
+    return "Bronze 🥉"
+
+
+# ==================================================
+# ACHIEVEMENTS
+# ==================================================
+
+def get_achievements(score):
+    achievements = []
+
+    if score >= 50:
+        achievements.append(
+            "Beginner 🚀"
+        )
+
+    if score >= 150:
+        achievements.append(
+            "Quiz Master 🧠"
+        )
+
+    if score >= 300:
+        achievements.append(
+            "Legend 👑"
+        )
+
+    return achievements
+
+
+# ==================================================
+# DAILY REWARD
+# ==================================================
+
+def give_daily_reward(username):
+    conn = sqlite3.connect(
+        DATABASE
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+
+        """
+        SELECT last_reward
+        FROM users
+        WHERE username = ?
+        """,
+
+        (username,)
+    )
+
+    result = cursor.fetchone()
+
+    today = datetime.now().strftime(
+        "%Y-%m-%d"
+    )
+
+    if result and result[0] == today:
+        conn.close()
+
+        return False
+
+    cursor.execute(
+
+        """
+        UPDATE users
+        SET score = score + 50,
+            last_reward = ?
+        WHERE username = ?
+        """,
+
+        (
+            today,
+            username
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return True
+
+
+# ==================================================
+# ANSWER SYSTEM
+# ==================================================
+
+def evaluate_answer(
+
+        user_answer,
+        correct_answer
+
+):
+    if (
+            user_answer
+            ==
+            correct_answer
+    ):
+        return (
+            "Doğru cevap ✅",
+            10
+        )
+
+    return (
+
+        f"Yanlış ❌ "
+        f"Doğru cevap: "
+        f"{correct_answer}",
+
+        0
+    )
+
+
+# ==================================================
 # LOGIN
+# ==================================================
+
 @app.route(
     "/login",
     methods=["GET", "POST"]
 )
 def login():
-
     if request.method == "POST":
 
-        username = request.form.get(
-            "username"
+        username = (
+            request.form.get(
+                "username"
+            )
         )
 
         if not username:
-
-            return (
-                "Kullanıcı adı gerekli"
+            return redirect(
+                "/login"
             )
 
         conn = sqlite3.connect(
-            "database.db"
+            DATABASE
         )
 
         cursor = conn.cursor()
@@ -226,34 +328,22 @@ def login():
         cursor.execute(
 
             """
-            SELECT * FROM users
-            WHERE username=?
+            INSERT OR IGNORE INTO users (
+                username
+            )
+            VALUES (?)
             """,
 
             (username,)
         )
 
-        user = cursor.fetchone()
-
-        if not user:
-
-            cursor.execute(
-
-                """
-                INSERT INTO users (
-                    username
-                )
-                VALUES (?)
-                """,
-
-                (username,)
-            )
-
-            conn.commit()
+        conn.commit()
 
         conn.close()
 
-        session["username"] = username
+        session["username"] = (
+            username
+        )
 
         return redirect("/")
 
@@ -262,134 +352,202 @@ def login():
     )
 
 
+# ==================================================
+# HOME
+# ==================================================
+
+@app.route("/")
+def home():
+    if "username" not in session:
+        return redirect(
+            "/login"
+        )
+
+    give_daily_reward(
+        session["username"]
+    )
+
+    question_data = (
+        get_question()
+    )
+
+    conn = sqlite3.connect(
+        DATABASE
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+
+        """
+        SELECT score
+        FROM users
+        WHERE username = ?
+        """,
+
+        (session["username"],)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    score = user[0]
+
+    level = get_level(
+        score
+    )
+
+    achievements = (
+        get_achievements(
+            score
+        )
+    )
+
+    return render_template(
+
+        "index.html",
+
+        question=
+        question_data[
+            "question"
+        ],
+
+        options=
+        question_data[
+            "options"
+        ],
+
+        correct_answer=
+        question_data[
+            "answer"
+        ],
+
+        score=score,
+
+        level=level,
+
+        achievements=
+        achievements
+    )
+
+
+# ==================================================
 # ANSWER
+# ==================================================
+
 @app.route(
     "/answer",
     methods=["POST"]
 )
 def answer():
-
-    if "username" not in session:
-
-        return jsonify({
-
-            "feedback":
-            "Giriş yapmalısınız.",
-
-            "score": 0
-        })
-
-    user_answer = request.form.get(
-        "answer"
+    user_answer = (
+        request.form.get(
+            "answer"
+        )
     )
 
-    correct_answer = session.get(
-        "correct_answer"
+    correct_answer = (
+        request.form.get(
+            "correct_answer"
+        )
     )
 
-    score = 0
+    feedback, gained_score = (
+        evaluate_answer(
 
-    feedback = "Yanlış ❌"
+            user_answer,
 
-    if not user_answer:
-
-        return jsonify({
-
-            "feedback":
-            "Cevap boş olamaz.",
-
-            "score": 0
-        })
-
-    selected_letter = user_answer[0]
-
-    if selected_letter == correct_answer:
-
-        feedback = "Doğru cevap ✅"
-
-        conn = sqlite3.connect(
-            "database.db"
+            correct_answer
         )
+    )
 
-        cursor = conn.cursor()
+    conn = sqlite3.connect(
+        DATABASE
+    )
 
-        cursor.execute(
+    cursor = conn.cursor()
 
-            """
-            UPDATE users
-            SET score = score + 10
-            WHERE username=?
-            """,
+    cursor.execute(
 
-            (session["username"],)
+        """
+        UPDATE users
+        SET score = score + ?
+        WHERE username = ?
+        """,
+
+        (
+
+            gained_score,
+
+            session[
+                "username"
+            ]
         )
+    )
 
-        conn.commit()
+    conn.commit()
 
-        cursor.execute(
+    cursor.execute(
 
-            """
-            SELECT score
-            FROM users
-            WHERE username=?
-            """,
+        """
+        SELECT score
+        FROM users
+        WHERE username = ?
+        """,
 
-            (session["username"],)
+        (session["username"],)
+    )
+
+    updated_user = (
+        cursor.fetchone()
+    )
+
+    conn.close()
+
+    total_score = (
+        updated_user[0]
+    )
+
+    level = get_level(
+        total_score
+    )
+
+    achievements = (
+        get_achievements(
+            total_score
         )
-
-        updated_score = (
-            cursor.fetchone()
-        )
-
-        conn.close()
-
-        if updated_score:
-
-            score = updated_score[0]
-
-    else:
-
-        conn = sqlite3.connect(
-            "database.db"
-        )
-
-        cursor = conn.cursor()
-
-        cursor.execute(
-
-            """
-            SELECT score
-            FROM users
-            WHERE username=?
-            """,
-
-            (session["username"],)
-        )
-
-        current_score = (
-            cursor.fetchone()
-        )
-
-        conn.close()
-
-        if current_score:
-
-            score = current_score[0]
+    )
 
     return jsonify({
 
-        "feedback": feedback,
+        "feedback":
+            feedback,
 
-        "score": score
+        "gained_score":
+            gained_score,
+
+        "total_score":
+            total_score,
+
+        "level":
+            level,
+
+        "achievements":
+            achievements
     })
 
 
+# ==================================================
 # LEADERBOARD
-@app.route("/leaderboard")
-def leaderboard():
+# ==================================================
 
+@app.route(
+    "/leaderboard"
+)
+def leaderboard():
     conn = sqlite3.connect(
-        "database.db"
+        DATABASE
     )
 
     cursor = conn.cursor()
@@ -415,29 +573,80 @@ def leaderboard():
     )
 
 
+# ==================================================
+# ADMIN PANEL
+# ==================================================
+
+@app.route("/admin")
+def admin():
+    password = request.args.get(
+        "password"
+    )
+
+    if password != ADMIN_PASSWORD:
+        return "ACCESS DENIED"
+
+    conn = sqlite3.connect(
+        DATABASE
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+
+        """
+        SELECT username, score
+        FROM users
+        ORDER BY score DESC
+        """
+    )
+
+    users = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+
+        "admin.html",
+
+        users=users
+    )
+
+
+# ==================================================
 # LOGOUT
+# ==================================================
+
 @app.route("/logout")
 def logout():
-
     session.clear()
 
-    return redirect("/login")
+    return redirect(
+        "/login"
+    )
 
 
-# INIT DATABASE
-init_db()
+# ==================================================
+# START
+# ==================================================
 
-
-# START APP
 if __name__ == "__main__":
-
     port = int(
-        os.environ.get("PORT", 5000)
+
+        os.environ.get(
+
+            "PORT",
+
+            5000
+        )
     )
 
     app.run(
 
         host="0.0.0.0",
 
-        port=port
+        port=port,
+
+        debug=True
     )
+# update
