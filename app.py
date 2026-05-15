@@ -23,8 +23,6 @@ app.secret_key = "super_secret_key"
 
 DATABASE = "database.db"
 
-ADMIN_PASSWORD = "1234"
-
 # ==================================================
 # DATABASE
 # ==================================================
@@ -47,6 +45,10 @@ def init_db():
 
             score INTEGER DEFAULT 0,
 
+            level INTEGER DEFAULT 1,
+
+            xp INTEGER DEFAULT 0,
+
             last_reward TEXT
         )
 
@@ -56,6 +58,9 @@ def init_db():
 
     conn.close()
 
+# ==================================================
+# INIT DB
+# ==================================================
 
 init_db()
 
@@ -67,21 +72,21 @@ QUESTIONS = [
 
     {
         "question":
-        "Türkiye'nin başkenti neresidir?",
+        "Python nedir?",
 
         "options": [
 
-            "İstanbul",
+            "Programlama Dili",
 
-            "Ankara",
+            "Tarayıcı",
 
-            "İzmir",
+            "Oyun",
 
-            "Bursa"
+            "İşletim Sistemi"
         ],
 
         "answer":
-        "Ankara"
+        "Programlama Dili"
     },
 
     {
@@ -105,43 +110,55 @@ QUESTIONS = [
 
     {
         "question":
-        "Python nedir?",
+        "Türkiye'nin başkenti?",
 
         "options": [
 
-            "Programlama dili",
+            "İstanbul",
 
-            "Tarayıcı",
+            "Ankara",
 
-            "Oyun",
+            "İzmir",
 
-            "Robot"
+            "Bursa"
         ],
 
         "answer":
-        "Programlama dili"
-    },
-
-    {
-        "question":
-        "Dünyanın en büyük okyanusu hangisidir?",
-
-        "options": [
-
-            "Atlas",
-
-            "Hint",
-
-            "Pasifik",
-
-            "Arktik"
-        ],
-
-        "answer":
-        "Pasifik"
+        "Ankara"
     }
 
 ]
+
+# ==================================================
+# BOSS SYSTEM
+# ==================================================
+
+BOSS = {
+
+    "name":
+    "AI TITAN 🤖",
+
+    "max_hp":
+    500,
+
+    "hp":
+    500
+}
+
+PLAYER_MAX_HP = 100
+
+# ==================================================
+# PLAYER HP
+# ==================================================
+
+@app.before_request
+def create_player_hp():
+
+    if "player_hp" not in session:
+
+        session["player_hp"] = (
+            PLAYER_MAX_HP
+        )
 
 # ==================================================
 # RANDOM QUESTION
@@ -157,25 +174,12 @@ def get_question():
 # LEVEL SYSTEM
 # ==================================================
 
-def get_level(score):
+def calculate_level(xp):
 
-    if score >= 500:
-
-        return "Diamond 💎"
-
-    elif score >= 300:
-
-        return "Platinum 🏆"
-
-    elif score >= 150:
-
-        return "Gold 🥇"
-
-    elif score >= 50:
-
-        return "Silver 🥈"
-
-    return "Bronze 🥉"
+    return max(
+        1,
+        xp // 100 + 1
+    )
 
 # ==================================================
 # ACHIEVEMENTS
@@ -238,13 +242,14 @@ def give_daily_reward(username):
 
         conn.close()
 
-        return False
+        return
 
     cursor.execute(
 
         """
         UPDATE users
         SET score = score + 50,
+            xp = xp + 50,
             last_reward = ?
         WHERE username = ?
         """,
@@ -259,39 +264,6 @@ def give_daily_reward(username):
 
     conn.close()
 
-    return True
-
-# ==================================================
-# ANSWER SYSTEM
-# ==================================================
-
-def evaluate_answer(
-
-    user_answer,
-    correct_answer
-
-):
-
-    if (
-        user_answer
-        ==
-        correct_answer
-    ):
-
-        return (
-            "Doğru cevap ✅",
-            10
-        )
-
-    return (
-
-        f"Yanlış ❌ "
-        f"Doğru cevap: "
-        f"{correct_answer}",
-
-        0
-    )
-
 # ==================================================
 # LOGIN
 # ==================================================
@@ -304,10 +276,8 @@ def login():
 
     if request.method == "POST":
 
-        username = (
-            request.form.get(
-                "username"
-            )
+        username = request.form.get(
+            "username"
         )
 
         if not username:
@@ -355,19 +325,159 @@ def login():
 @app.route("/")
 def home():
 
-    if "username" not in session:
+    try:
 
-        return redirect(
-            "/login"
+        if "username" not in session:
+
+            return redirect(
+                "/login"
+            )
+
+        username = session[
+            "username"
+        ]
+
+        give_daily_reward(
+            username
         )
 
-    give_daily_reward(
-        session["username"]
+        conn = sqlite3.connect(
+            DATABASE
+        )
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+
+            """
+            SELECT score, level, xp
+            FROM users
+            WHERE username = ?
+            """,
+
+            (username,)
+        )
+
+        user = cursor.fetchone()
+
+        conn.close()
+
+        # ===============================
+        # NONE ERROR FIX
+        # ===============================
+
+        if user is None:
+
+            score = 0
+            level = 1
+            xp = 0
+
+        else:
+
+            score = user[0]
+            level = user[1]
+            xp = user[2]
+
+        question_data = (
+            get_question()
+        )
+
+        achievements = (
+            get_achievements(
+                score
+            )
+        )
+
+        progress = min(
+            100,
+            xp % 100
+        )
+
+        return render_template(
+
+            "index.html",
+
+            username=username,
+
+            score=score,
+
+            level=level,
+
+            xp=xp,
+
+            progress=progress,
+
+            achievements=
+            achievements,
+
+            question=
+            question_data[
+                "question"
+            ],
+
+            options=
+            question_data[
+                "options"
+            ],
+
+            correct_answer=
+            question_data[
+                "answer"
+            ]
+        )
+
+    except Exception as e:
+
+        return f"""
+
+        <h1>SERVER ERROR</h1>
+
+        <p>{str(e)}</p>
+
+        """
+
+# ==================================================
+# ANSWER
+# ==================================================
+
+@app.route(
+    "/answer",
+    methods=["POST"]
+)
+def answer():
+
+    if "username" not in session:
+
+        return jsonify({
+
+            "error":
+            "Login required"
+        })
+
+    user_answer = request.form.get(
+        "answer"
     )
 
-    question_data = (
-        get_question()
+    correct_answer = request.form.get(
+        "correct_answer"
     )
+
+    if user_answer == correct_answer:
+
+        gained_score = 10
+        gained_xp = 20
+
+        result = "Correct ✅"
+
+    else:
+
+        gained_score = 0
+        gained_xp = 0
+
+        result = (
+            f"Wrong ❌ "
+            f"Correct: {correct_answer}"
+        )
 
     conn = sqlite3.connect(
         DATABASE
@@ -375,36 +485,109 @@ def home():
 
     cursor = conn.cursor()
 
+    username = session[
+        "username"
+    ]
+
     cursor.execute(
 
         """
-        SELECT score
+        SELECT xp
         FROM users
         WHERE username = ?
         """,
 
-        (session["username"],)
+        (username,)
     )
 
-    user = cursor.fetchone()
+    current_user = (
+        cursor.fetchone()
+    )
+
+    current_xp = (
+        current_user[0]
+        if current_user
+        else 0
+    )
+
+    new_xp = (
+        current_xp
+        +
+        gained_xp
+    )
+
+    new_level = (
+        calculate_level(
+            new_xp
+        )
+    )
+
+    cursor.execute(
+
+        """
+        UPDATE users
+        SET score = score + ?,
+            xp = ?,
+            level = ?
+        WHERE username = ?
+        """,
+
+        (
+            gained_score,
+            new_xp,
+            new_level,
+            username
+        )
+    )
+
+    conn.commit()
 
     conn.close()
 
-    score = user[0]
+    return jsonify({
 
-    level = get_level(
-        score
-    )
+        "result":
+        result,
 
-    achievements = (
-        get_achievements(
-            score
+        "xp":
+        new_xp,
+
+        "level":
+        new_level
+    })
+
+# ==================================================
+# BOSS PAGE
+# ==================================================
+
+@app.route("/boss")
+def boss():
+
+    if "username" not in session:
+
+        return redirect(
+            "/login"
         )
+
+    question_data = (
+        get_question()
     )
 
     return render_template(
 
-        "index.html",
+        "boss.html",
+
+        boss_name=
+        BOSS["name"],
+
+        boss_hp=
+        BOSS["hp"],
+
+        boss_max_hp=
+        BOSS["max_hp"],
+
+        player_hp=
+        session["player_hp"],
 
         question=
         question_data[
@@ -419,129 +602,80 @@ def home():
         correct_answer=
         question_data[
             "answer"
-        ],
-
-        score=score,
-
-        level=level,
-
-        achievements=
-        achievements
+        ]
     )
 
 # ==================================================
-# ANSWER
+# BOSS ANSWER
 # ==================================================
 
 @app.route(
-    "/answer",
+    "/boss_answer",
     methods=["POST"]
 )
-def answer():
+def boss_answer():
 
-    user_answer = (
-        request.form.get(
-            "answer"
+    user_answer = request.form.get(
+        "answer"
+    )
+
+    correct_answer = request.form.get(
+        "correct_answer"
+    )
+
+    if user_answer == correct_answer:
+
+        damage = random.randint(
+            25,
+            50
         )
+
+        BOSS["hp"] -= damage
+
+        if BOSS["hp"] < 0:
+
+            BOSS["hp"] = 0
+
+        return jsonify({
+
+            "result":
+            f"Critical Hit ⚔️ -{damage}",
+
+            "boss_hp":
+            BOSS["hp"],
+
+            "player_hp":
+            session["player_hp"]
+        })
+
+    damage = random.randint(
+        5,
+        20
     )
 
-    correct_answer = (
-        request.form.get(
-            "correct_answer"
-        )
-    )
+    session["player_hp"] -= damage
 
-    feedback, gained_score = (
-        evaluate_answer(
+    if session["player_hp"] < 0:
 
-            user_answer,
-
-            correct_answer
-        )
-    )
-
-    conn = sqlite3.connect(
-        DATABASE
-    )
-
-    cursor = conn.cursor()
-
-    cursor.execute(
-
-        """
-        UPDATE users
-        SET score = score + ?
-        WHERE username = ?
-        """,
-
-        (
-
-            gained_score,
-
-            session[
-                "username"
-            ]
-        )
-    )
-
-    conn.commit()
-
-    cursor.execute(
-
-        """
-        SELECT score
-        FROM users
-        WHERE username = ?
-        """,
-
-        (session["username"],)
-    )
-
-    updated_user = (
-        cursor.fetchone()
-    )
-
-    conn.close()
-
-    total_score = (
-        updated_user[0]
-    )
-
-    level = get_level(
-        total_score
-    )
-
-    achievements = (
-        get_achievements(
-            total_score
-        )
-    )
+        session["player_hp"] = 0
 
     return jsonify({
 
-        "feedback":
-        feedback,
+        "result":
+        f"Boss Hit 💥 -{damage}",
 
-        "gained_score":
-        gained_score,
+        "boss_hp":
+        BOSS["hp"],
 
-        "total_score":
-        total_score,
-
-        "level":
-        level,
-
-        "achievements":
-        achievements
+        "player_hp":
+        session["player_hp"]
     })
 
 # ==================================================
 # LEADERBOARD
 # ==================================================
 
-@app.route(
-    "/leaderboard"
-)
+@app.route("/leaderboard")
 def leaderboard():
 
     conn = sqlite3.connect(
@@ -553,7 +687,7 @@ def leaderboard():
     cursor.execute(
 
         """
-        SELECT username, score
+        SELECT username, score, level
         FROM users
         ORDER BY score DESC
         """
@@ -566,47 +700,6 @@ def leaderboard():
     return render_template(
 
         "leaderboard.html",
-
-        users=users
-    )
-
-# ==================================================
-# ADMIN PANEL
-# ==================================================
-
-@app.route("/admin")
-def admin():
-
-    password = request.args.get(
-        "password"
-    )
-
-    if password != ADMIN_PASSWORD:
-
-        return "ACCESS DENIED"
-
-    conn = sqlite3.connect(
-        DATABASE
-    )
-
-    cursor = conn.cursor()
-
-    cursor.execute(
-
-        """
-        SELECT username, score
-        FROM users
-        ORDER BY score DESC
-        """
-    )
-
-    users = cursor.fetchall()
-
-    conn.close()
-
-    return render_template(
-
-        "admin.html",
 
         users=users
     )
@@ -625,7 +718,7 @@ def logout():
     )
 
 # ==================================================
-# START
+# START APP
 # ==================================================
 
 if __name__ == "__main__":
