@@ -4,16 +4,34 @@ import os
 
 app = Flask(__name__)
 
-DATABASE = "database.db"
+DB_NAME = "database.db"
 
 
-# DATABASE OLUŞTUR
-def init_db():
-    conn = sqlite3.connect(DATABASE)
+# =========================
+# DATABASE CONNECTION
+# =========================
+
+def get_db():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+# =========================
+# DATABASE RESET + CREATE
+# =========================
+
+def reset_database():
+
+    conn = get_db()
     cursor = conn.cursor()
 
+    # ESKI TABLOYU SIL
+    cursor.execute("DROP TABLE IF EXISTS users")
+
+    # YENI TABLO
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT,
         score INTEGER DEFAULT 0,
@@ -22,84 +40,133 @@ def init_db():
     )
     """)
 
-    conn.commit()
-    conn.close()
-
-
-# XP KOLONU YOKSA EKLE
-def fix_database():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-
-    cursor.execute("PRAGMA table_info(users)")
-    columns = [column[1] for column in cursor.fetchall()]
-
-    if "xp" not in columns:
-        cursor.execute(
-            "ALTER TABLE users ADD COLUMN xp INTEGER DEFAULT 0"
-        )
-
-    if "level" not in columns:
-        cursor.execute(
-            "ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1"
-        )
+    # TEST USER
+    cursor.execute("""
+    INSERT INTO users
+    (username, score, xp, level)
+    VALUES (?, ?, ?, ?)
+    """, ("Efe", 0, 0, 1))
 
     conn.commit()
     conn.close()
 
+
+# =========================
+# HOME
+# =========================
 
 @app.route("/")
 def home():
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db()
     cursor = conn.cursor()
 
-    # KULLANICI VAR MI?
     cursor.execute("SELECT * FROM users LIMIT 1")
     user = cursor.fetchone()
 
-    # YOKSA OLUŞTUR
-    if user is None:
-        cursor.execute("""
-        INSERT INTO users (username, score, xp, level)
-        VALUES (?, ?, ?, ?)
-        """, ("Efe", 0, 0, 1))
-
-        conn.commit()
-
-        cursor.execute("SELECT * FROM users LIMIT 1")
-        user = cursor.fetchone()
-
-    username = user[1]
-    score = user[2]
-    xp = user[3]
-    level = user[4]
+    username = user["username"]
+    score = user["score"]
+    xp = user["xp"]
+    level = user["level"]
 
     conn.close()
 
     return f"""
-    <h1>AI Eğitim Sistemi</h1>
+    <!DOCTYPE html>
 
-    <h2>Kullanıcı: {username}</h2>
+    <html>
 
-    <h3>Score: {score}</h3>
+    <head>
 
-    <h3>XP: {xp}</h3>
+        <title>AI Eğitim Sistemi</title>
 
-    <h3>Level: {level}</h3>
+        <style>
 
-    <br>
+            body {{
+                background: #111827;
+                color: white;
+                font-family: Arial;
+                text-align: center;
+                padding: 40px;
+            }}
 
-    <a href='/addxp'>
-        <button>+50 XP</button>
-    </a>
+            .card {{
+                background: #1f2937;
+                padding: 30px;
+                border-radius: 20px;
+                width: 500px;
+                margin: auto;
+            }}
+
+            button {{
+                padding: 12px 20px;
+                border: none;
+                border-radius: 10px;
+                background: #2563eb;
+                color: white;
+                cursor: pointer;
+                font-size: 16px;
+            }}
+
+            .xpbar {{
+                width: 100%;
+                background: #374151;
+                height: 30px;
+                border-radius: 20px;
+                overflow: hidden;
+                margin-top: 20px;
+            }}
+
+            .xpfill {{
+                height: 100%;
+                width: {xp % 100}%;
+                background: limegreen;
+            }}
+
+        </style>
+
+    </head>
+
+    <body>
+
+        <div class="card">
+
+            <h1>🔥 AI Eğitim Sistemi</h1>
+
+            <h2>{username}</h2>
+
+            <h3>Score: {score}</h3>
+
+            <h3>XP: {xp}</h3>
+
+            <h3>Level: {level}</h3>
+
+            <div class="xpbar">
+                <div class="xpfill"></div>
+            </div>
+
+            <br><br>
+
+            <a href="/addxp">
+                <button>+50 XP</button>
+            </a>
+
+        </div>
+
+    </body>
+
+    </html>
     """
 
 
-@app.route("/addxp")
-def add_xp():
+# =========================
+# XP
+# =========================
 
-    conn = sqlite3.connect(DATABASE)
+@app.route("/addxp")
+def addxp():
+
+    conn = get_db()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -107,27 +174,31 @@ def add_xp():
     SET xp = xp + 50
     """)
 
-    # LEVEL SISTEMI
     cursor.execute("""
     UPDATE users
-    SET level = (xp / 100) + 1
+    SET level = CAST((xp / 100) AS INTEGER) + 1
     """)
 
     conn.commit()
     conn.close()
 
     return """
-    <h1>50 XP Eklendi!</h1>
-    <a href='/'>
-        <button>Ana Sayfa</button>
+    <h1>XP Eklendi</h1>
+
+    <a href="/">
+        <button>Geri Dön</button>
     </a>
     """
 
 
+# =========================
+# START
+# =========================
+
 if __name__ == "__main__":
 
-    init_db()
-    fix_database()
+    # DATABASE'I SIFIRDAN OLUŞTUR
+    reset_database()
 
     port = int(os.environ.get("PORT", 5000))
 
