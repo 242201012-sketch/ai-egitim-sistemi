@@ -280,6 +280,308 @@ def add_item(user_id, item_name):
 
     conn.close()
 
+
+# =========================================================
+# ACHIEVEMENT SYSTEM
+# app.py içine EKLE
+# add_item() fonksiyonunun ALTINA koy
+# =========================================================
+
+def init_achievement_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ACHIEVEMENTS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS achievements(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        title TEXT,
+
+        description TEXT,
+
+        reward INTEGER
+    )
+    """)
+
+    # USER ACHIEVEMENTS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_achievements(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER,
+
+        achievement_id INTEGER
+    )
+    """)
+
+    conn.commit()
+
+    # DEFAULT ACHIEVEMENTS
+
+    cursor.execute(
+        "SELECT * FROM achievements"
+    )
+
+    achievements = cursor.fetchall()
+
+    if len(achievements) == 0:
+
+        default_achievements = [
+
+            (
+                "First Login",
+                "İlk giriş yapıldı",
+                50
+            ),
+
+            (
+                "Level 5",
+                "Level 5 oldun",
+                250
+            ),
+
+            (
+                "XP Master",
+                "500 XP kazandın",
+                500
+            ),
+
+            (
+                "Boss Slayer",
+                "Boss savaşı tamamlandı",
+                300
+            ),
+
+            (
+                "Rich Player",
+                "1000 coin toplandı",
+                400
+            )
+
+        ]
+
+        cursor.executemany(
+            """
+            INSERT INTO achievements
+            (
+                title,
+                description,
+                reward
+            )
+            VALUES (?, ?, ?)
+            """,
+            default_achievements
+        )
+
+    conn.commit()
+
+    conn.close()
+
+
+init_achievement_system()
+
+# =========================================================
+# CHECK ACHIEVEMENT
+# =========================================================
+
+def has_achievement(user_id, achievement_title):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT ua.id
+        FROM user_achievements ua
+
+        JOIN achievements a
+        ON ua.achievement_id = a.id
+
+        WHERE ua.user_id=? AND a.title=?
+        """,
+        (
+            user_id,
+            achievement_title
+        )
+    )
+
+    result = cursor.fetchone()
+
+    conn.close()
+
+    return result is not None
+
+# =========================================================
+# GIVE ACHIEVEMENT
+# =========================================================
+
+def give_achievement(user_id, achievement_title):
+
+    if has_achievement(user_id, achievement_title):
+
+        return
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM achievements
+        WHERE title=?
+        """,
+        (achievement_title,)
+    )
+
+    achievement = cursor.fetchone()
+
+    if achievement is None:
+
+        conn.close()
+
+        return
+
+    # ACHIEVEMENT EKLE
+
+    cursor.execute(
+        """
+        INSERT INTO user_achievements
+        (
+            user_id,
+            achievement_id
+        )
+        VALUES (?, ?)
+        """,
+        (
+            user_id,
+            achievement["id"]
+        )
+    )
+
+    # REWARD COIN
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins + ?
+        WHERE id=?
+        """,
+        (
+            achievement["reward"],
+            user_id
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+# =========================================================
+# ACHIEVEMENT ENGINE
+# =========================================================
+
+def check_achievements(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    if user is None:
+
+        return
+
+    # LEVEL 5
+
+    if user["level"] >= 5:
+
+        give_achievement(
+            user_id,
+            "Level 5"
+        )
+
+    # XP MASTER
+
+    if user["xp"] >= 500:
+
+        give_achievement(
+            user_id,
+            "XP Master"
+        )
+
+    # RICH PLAYER
+
+    if user["coins"] >= 1000:
+
+        give_achievement(
+            user_id,
+            "Rich Player"
+        )
+
+# =========================================================
+# ACHIEVEMENTS PAGE
+# =========================================================
+
+@app.route("/achievements")
+def achievements():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            a.title,
+            a.description,
+            a.reward
+
+        FROM user_achievements ua
+
+        JOIN achievements a
+        ON ua.achievement_id = a.id
+
+        WHERE ua.user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    achievements = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "achievements.html",
+        achievements=achievements
+    )
+
+
+
 # =========================================================
 # HOME
 # =========================================================
