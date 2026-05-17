@@ -1,7 +1,18 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session
+)
+
+
 import sqlite3
 import os
 
+# =========================================================
+# APP
+# =========================================================
 
 app = Flask(__name__)
 
@@ -88,9 +99,15 @@ def add_xp(user_id, gained_xp):
 
     required_xp = current_level * 100
 
-    if new_xp >= required_xp:
+    # LEVEL SYSTEM
+
+    while new_xp >= required_xp:
+
+        new_xp -= required_xp
 
         current_level += 1
+
+        required_xp = current_level * 100
 
     cursor.execute(
         """
@@ -118,7 +135,7 @@ def home():
 
     if "user_id" not in session:
 
-        return render_template("login.html")
+        return redirect("/login")
 
     conn = get_db()
 
@@ -141,9 +158,11 @@ def home():
 
         session.clear()
 
-        return redirect("/")
+        return redirect("/login")
 
-    xp_percent = user["xp"] % 100
+    xp_percent = int(
+        (user["xp"] / (user["level"] * 100)) * 100
+    )
 
     return render_template(
         "index.html",
@@ -155,8 +174,12 @@ def home():
 # REGISTER
 # =========================================================
 
-@app.route("/register", methods=["POST"])
+@app.route("/register", methods=["GET", "POST"])
 def register():
+
+    if request.method == "GET":
+
+        return render_template("register.html")
 
     username = request.form["username"]
 
@@ -191,7 +214,7 @@ def register():
 
         conn.commit()
 
-        return redirect("/")
+        return redirect("/login")
 
     except Exception as e:
 
@@ -205,8 +228,12 @@ def register():
 # LOGIN
 # =========================================================
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
+
+    if request.method == "GET":
+
+        return render_template("login.html")
 
     username = request.form["username"]
 
@@ -234,7 +261,10 @@ def login():
 
     if user is None:
 
-        return "Kullanici bulunamadi"
+        return """
+        <h1>❌ Kullanıcı Bulunamadı</h1>
+        <a href='/login'>Tekrar Dene</a>
+        """
 
     session["user_id"] = user["id"]
 
@@ -249,7 +279,7 @@ def logout():
 
     session.clear()
 
-    return redirect("/")
+    return redirect("/login")
 
 # =========================================================
 # XP TEST
@@ -260,7 +290,7 @@ def gain_xp():
 
     if "user_id" not in session:
 
-        return redirect("/")
+        return redirect("/login")
 
     add_xp(
         session["user_id"],
@@ -268,17 +298,6 @@ def gain_xp():
     )
 
     return redirect("/")
-
-# =========================================================
-# BOSS
-# =========================================================
-
-@app.route("/boss")
-def boss():
-
-    return """
-    <h1>🔥 Boss Battle Yakında!</h1>
-    """
 
 # =========================================================
 # LEADERBOARD
@@ -294,7 +313,7 @@ def leaderboard():
     cursor.execute("""
     SELECT username, xp, level
     FROM users
-    ORDER BY xp DESC
+    ORDER BY level DESC, xp DESC
     LIMIT 10
     """)
 
@@ -302,25 +321,48 @@ def leaderboard():
 
     conn.close()
 
-    html = """
+    return render_template(
+        "leaderboard.html",
+        users=users
+    )
 
-    <h1>🏆 Leaderboard</h1>
+# =========================================================
+# BOSS BATTLE
+# =========================================================
 
-    <hr>
+@app.route("/boss")
+def boss():
 
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    return render_template("boss.html")
+
+# =========================================================
+# BOSS ATTACK
+# =========================================================
+
+@app.route("/boss_attack", methods=["POST"])
+def boss_attack():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    add_xp(
+        session["user_id"],
+        50
+    )
+
+    return """
+    <h1>🔥 Boss'a saldırdın!</h1>
+    <p>+50 XP kazandın</p>
+
+    <a href='/'>
+        Ana Sayfa
+    </a>
     """
-
-    for user in users:
-
-        html += f"""
-        <p>
-        👤 {user['username']}
-        | ⭐ Level {user['level']}
-        | ⚡ {user['xp']} XP
-        </p>
-        """
-
-    return html
 
 # =========================================================
 # MAIN
@@ -328,7 +370,9 @@ def leaderboard():
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5000))
+    port = int(
+        os.environ.get("PORT", 5000)
+    )
 
     app.run(
         host="0.0.0.0",
