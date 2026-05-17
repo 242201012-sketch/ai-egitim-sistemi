@@ -869,6 +869,110 @@ def boss_attack():
     """
 
 # =========================================================
+# PROFILE PAGE
+# app.py içine ekle
+# =========================================================
+
+@app.route("/profile")
+def profile():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # USER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    # INVENTORY
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM inventory
+        WHERE user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    inventory = cursor.fetchall()
+
+    # ACHIEVEMENTS
+
+    cursor.execute(
+        """
+        SELECT
+            a.title,
+            a.description,
+            a.reward
+
+        FROM user_achievements ua
+
+        JOIN achievements a
+        ON ua.achievement_id = a.id
+
+        WHERE ua.user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    achievements = cursor.fetchall()
+
+    # RANK SYSTEM
+
+    level = user["level"]
+
+    if level >= 50:
+
+        rank = "👑 AI LEGEND"
+
+    elif level >= 40:
+
+        rank = "💎 MASTER"
+
+    elif level >= 30:
+
+        rank = "🔥 DIAMOND"
+
+    elif level >= 20:
+
+        rank = "🥇 GOLD"
+
+    elif level >= 10:
+
+        rank = "🥈 SILVER"
+
+    else:
+
+        rank = "🥉 BRONZE"
+
+    conn.close()
+
+    return render_template(
+        "profile.html",
+        user=user,
+        inventory=inventory,
+        achievements=achievements,
+        rank=rank
+    )
+
+
+
+
+# =========================================================
 # SHOP
 # =========================================================
 
