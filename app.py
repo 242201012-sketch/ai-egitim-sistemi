@@ -20,49 +20,456 @@ app.secret_key = "SUPER_SECRET_KEY"
 
 DATABASE = "game.db"
 
+
+
+```python id="v9m3qt"
 # =========================================================
-# DATABASE
+# FULL COIN + INVENTORY + SHOP SYSTEM
+# app.py içine ekle
 # =========================================================
 
-def get_db():
+# =========================================================
+# DATABASE UPGRADE
+# =========================================================
 
-    conn = sqlite3.connect(DATABASE)
-
-    conn.row_factory = sqlite3.Row
-
-    return conn
-
-
-def init_db():
+def init_extra_tables():
 
     conn = get_db()
 
     cursor = conn.cursor()
 
+    # USERS COINS
+
+    try:
+
+        cursor.execute("""
+        ALTER TABLE users
+        ADD COLUMN coins INTEGER DEFAULT 0
+        """)
+
+    except:
+        pass
+
+    # INVENTORY
+
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users(
+    CREATE TABLE IF NOT EXISTS inventory(
 
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        username TEXT UNIQUE,
+        user_id INTEGER,
 
-        password TEXT,
+        item_name TEXT,
 
-        score INTEGER DEFAULT 0,
+        quantity INTEGER DEFAULT 1
 
-        xp INTEGER DEFAULT 0,
+    )
+    """)
 
-        level INTEGER DEFAULT 1
+    # SHOP
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS shop(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        item_name TEXT,
+
+        price INTEGER
 
     )
     """)
 
     conn.commit()
 
+    # DEFAULT ITEMS
+
+    cursor.execute(
+        "SELECT * FROM shop"
+    )
+
+    items = cursor.fetchall()
+
+    if len(items) == 0:
+
+        default_items = [
+
+            ("XP Potion", 100),
+
+            ("Boss Ticket", 250),
+
+            ("AI Crystal", 500),
+
+            ("Epic Sword", 1000)
+
+        ]
+
+        cursor.executemany(
+            """
+            INSERT INTO shop
+            (
+                item_name,
+                price
+            )
+            VALUES (?, ?)
+            """,
+            default_items
+        )
+
+    conn.commit()
+
     conn.close()
 
 
-init_db()
+init_extra_tables()
+
+# =========================================================
+# COIN SYSTEM
+# =========================================================
+
+def add_coins(user_id, amount):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins + ?
+        WHERE id=?
+        """,
+        (
+            amount,
+            user_id
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+# =========================================================
+# INVENTORY ADD
+# =========================================================
+
+def add_item(user_id, item_name):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM inventory
+        WHERE user_id=? AND item_name=?
+        """,
+        (
+            user_id,
+            item_name
+        )
+    )
+
+    item = cursor.fetchone()
+
+    if item:
+
+        cursor.execute(
+            """
+            UPDATE inventory
+            SET quantity = quantity + 1
+            WHERE id=?
+            """,
+            (item["id"],)
+        )
+
+    else:
+
+        cursor.execute(
+            """
+            INSERT INTO inventory
+            (
+                user_id,
+                item_name,
+                quantity
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                item_name,
+                1
+            )
+        )
+
+    conn.commit()
+
+    conn.close()
+
+# =========================================================
+# DAILY REWARD
+# =========================================================
+
+@app.route("/daily")
+def daily():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    add_xp(
+        session["user_id"],
+        100
+    )
+
+    add_coins(
+        session["user_id"],
+        50
+    )
+
+    return """
+    <h1>🔥 Günlük Ödül!</h1>
+
+    <p>+100 XP</p>
+
+    <p>+50 Coin</p>
+
+    <a href='/'>
+        Ana Sayfa
+    </a>
+    """
+
+# =========================================================
+# SHOP PAGE
+# =========================================================
+
+@app.route("/shop")
+def shop():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ITEMS
+
+    cursor.execute(
+        "SELECT * FROM shop"
+    )
+
+    items = cursor.fetchall()
+
+    # USER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    html = f"""
+
+    <h1>🛒 SHOP</h1>
+
+    <h2>
+        💰 Coin:
+        {user['coins']}
+    </h2>
+
+    <hr>
+
+    """
+
+    for item in items:
+
+        html += f"""
+
+        <div style='margin-bottom:20px;'>
+
+            <h3>
+                {item['item_name']}
+            </h3>
+
+            <p>
+                💰 {item['price']} Coin
+            </p>
+
+            <a href='/buy/{item['id']}'>
+                Satın Al
+            </a>
+
+        </div>
+
+        """
+
+    return html
+
+# =========================================================
+# BUY ITEM
+# =========================================================
+
+@app.route("/buy/<int:item_id>")
+def buy(item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # USER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    # ITEM
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM shop
+        WHERE id=?
+        """,
+        (item_id,)
+    )
+
+    item = cursor.fetchone()
+
+    if item is None:
+
+        conn.close()
+
+        return "Item bulunamadı"
+
+    if user["coins"] < item["price"]:
+
+        conn.close()
+
+        return """
+        <h1>❌ Yetersiz Coin</h1>
+        <a href='/shop'>Shop</a>
+        """
+
+    # COIN DÜŞ
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins - ?
+        WHERE id=?
+        """,
+        (
+            item["price"],
+            session["user_id"]
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    # ENVANTERE EKLE
+
+    add_item(
+        session["user_id"],
+        item["item_name"]
+    )
+
+    return f"""
+
+    <h1>
+        ✅ {item['item_name']} satın alındı
+    </h1>
+
+    <a href='/shop'>
+        Shop'a dön
+    </a>
+
+    """
+
+# =========================================================
+# INVENTORY PAGE
+# =========================================================
+
+@app.route("/inventory")
+def inventory():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM inventory
+        WHERE user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    items = cursor.fetchall()
+
+    conn.close()
+
+    html = """
+
+    <h1>🎒 Inventory</h1>
+
+    <hr>
+
+    """
+
+    if len(items) == 0:
+
+        html += "<p>Envanter boş</p>"
+
+    for item in items:
+
+        html += f"""
+
+        <div style='margin-bottom:20px;'>
+
+            <h3>
+                {item['item_name']}
+            </h3>
+
+            <p>
+                Adet:
+                {item['quantity']}
+            </p>
+
+        </div>
+
+        """
+
+    return html
+
+
 
 # =========================================================
 # XP SYSTEM
