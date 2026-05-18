@@ -1659,6 +1659,14 @@ app = Flask(
     static_folder="static"
 )
 
+@app.route("/")
+def home():
+    return "Ana Sayfa"
+
+@app.route("/index")
+def index():
+    return "Index"
+
 
 
 if __name__ == "__main__":
