@@ -552,14 +552,7 @@ def get_streak(user_id):
     return streak
 
 
-# =========================================================
-# ROUTES
-# =========================================================
 
-@app.route("/")
-def home():
-
-    return render_template("index.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
