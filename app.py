@@ -1213,6 +1213,437 @@ def leaderboard():
         richest_players=richest_players
     )
 
+# =========================================================
+# SHOP + EQUIPMENT SYSTEM
+# TAM ENTEGRE app.py KODU
+# =========================================================
+
+# =========================================================
+# SHOP TABLES
+# =========================================================
+
+def init_shop_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ITEMS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS items(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        name TEXT,
+
+        rarity TEXT,
+
+        price INTEGER,
+
+        attack INTEGER DEFAULT 0,
+
+        defense INTEGER DEFAULT 0,
+
+        hp INTEGER DEFAULT 0
+    )
+    """)
+
+    # USER ITEMS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_items(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER,
+
+        item_id INTEGER,
+
+        equipped INTEGER DEFAULT 0
+    )
+    """)
+
+    conn.commit()
+
+    # DEFAULT ITEMS
+
+    cursor.execute(
+        "SELECT * FROM items"
+    )
+
+    items = cursor.fetchall()
+
+    if len(items) == 0:
+
+        default_items = [
+
+            (
+                "Wooden Sword",
+                "Common",
+                100,
+                5,
+                0,
+                0
+            ),
+
+            (
+                "Iron Sword",
+                "Rare",
+                300,
+                15,
+                0,
+                0
+            ),
+
+            (
+                "Knight Armor",
+                "Epic",
+                500,
+                0,
+                20,
+                50
+            ),
+
+            (
+                "Legendary Blade",
+                "Legendary",
+                1000,
+                50,
+                10,
+                100
+            )
+
+        ]
+
+        cursor.executemany(
+            """
+            INSERT INTO items
+            (
+                name,
+                rarity,
+                price,
+                attack,
+                defense,
+                hp
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            default_items
+        )
+
+    conn.commit()
+
+    conn.close()
+
+
+init_shop_system()
+
+
+# =========================================================
+# GET EQUIPMENT BONUS
+# =========================================================
+
+def get_equipment_bonus(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            items.attack,
+            items.defense,
+            items.hp
+
+        FROM user_items
+
+        JOIN items
+        ON user_items.item_id = items.id
+
+        WHERE user_items.user_id=?
+        AND user_items.equipped=1
+        """,
+        (user_id,)
+    )
+
+    items = cursor.fetchall()
+
+    conn.close()
+
+    total_attack = 0
+    total_defense = 0
+    total_hp = 0
+
+    for item in items:
+
+        total_attack += item["attack"]
+        total_defense += item["defense"]
+        total_hp += item["hp"]
+
+    return {
+        "attack": total_attack,
+        "defense": total_defense,
+        "hp": total_hp
+    }
+
+
+# =========================================================
+# SHOP PAGE
+# =========================================================
+
+@app.route("/shop")
+def shop():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM items
+        """
+    )
+
+    items = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    return render_template(
+        "shop.html",
+        items=items,
+        user=user
+    )
+
+
+# =========================================================
+# BUY ITEM
+# =========================================================
+
+@app.route("/buy_item/<int:item_id>", methods=["POST"])
+def buy_item(item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ITEM
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM items
+        WHERE id=?
+        """,
+        (item_id,)
+    )
+
+    item = cursor.fetchone()
+
+    if item is None:
+
+        conn.close()
+
+        return "Item bulunamadı"
+
+    # USER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    if user["coins"] < item["price"]:
+
+        conn.close()
+
+        return "Yetersiz coin"
+
+    # REMOVE COINS
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins - ?
+        WHERE id=?
+        """,
+        (
+            item["price"],
+            session["user_id"]
+        )
+    )
+
+    # ADD ITEM
+
+    cursor.execute(
+        """
+        INSERT INTO user_items
+        (
+            user_id,
+            item_id,
+            equipped
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            session["user_id"],
+            item_id,
+            0
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+# =========================================================
+# INVENTORY PAGE
+# =========================================================
+
+@app.route("/inventory")
+def inventory_page():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            user_items.id,
+            user_items.equipped,
+
+            items.name,
+            items.rarity,
+            items.attack,
+            items.defense,
+            items.hp
+
+        FROM user_items
+
+        JOIN items
+        ON user_items.item_id = items.id
+
+        WHERE user_items.user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    inventory = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "inventory.html",
+        inventory=inventory
+    )
+
+
+# =========================================================
+# EQUIP ITEM
+# =========================================================
+
+@app.route("/equip_item/<int:user_item_id>", methods=["POST"])
+def equip_item(user_item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE user_items
+        SET equipped=1
+        WHERE id=?
+        AND user_id=?
+        """,
+        (
+            user_item_id,
+            session["user_id"]
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+# =========================================================
+# UNEQUIP ITEM
+# =========================================================
+
+@app.route("/unequip_item/<int:user_item_id>", methods=["POST"])
+def unequip_item(user_item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE user_items
+        SET equipped=0
+        WHERE id=?
+        AND user_id=?
+        """,
+        (
+            user_item_id,
+            session["user_id"]
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+
 
 
 app = Flask(
