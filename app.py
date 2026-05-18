@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 
 from flask import (
@@ -757,6 +758,388 @@ def profile():
         rank_color=rank_color,
         streak=streak
     )
+
+# =========================================================
+# PVP BATTLE SYSTEM
+# app.py içine TAM ENTEGRE EKLE
+# =========================================================
+
+import random
+
+
+# =========================================================
+# PVP TABLE
+# =========================================================
+
+def init_pvp_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # PLAYER STATS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS player_stats(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER UNIQUE,
+
+        hp INTEGER DEFAULT 100,
+
+        attack INTEGER DEFAULT 10,
+
+        defense INTEGER DEFAULT 5,
+
+        wins INTEGER DEFAULT 0,
+
+        losses INTEGER DEFAULT 0
+    )
+    """)
+
+    # BATTLE HISTORY
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS battle_history(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        attacker_id INTEGER,
+
+        defender_id INTEGER,
+
+        winner_id INTEGER,
+
+        damage INTEGER,
+
+        created_at TEXT
+    )
+    """)
+
+    conn.commit()
+
+    conn.close()
+
+
+init_pvp_system()
+
+
+# =========================================================
+# CREATE PLAYER STATS
+# register() ile uyumlu
+# =========================================================
+
+def create_player_stats(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO player_stats
+        (
+            user_id,
+            hp,
+            attack,
+            defense,
+            wins,
+            losses
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            100,
+            10,
+            5,
+            0,
+            0
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+# =========================================================
+# GET PLAYER STATS
+# =========================================================
+
+def get_player_stats(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    stats = cursor.fetchone()
+
+    conn.close()
+
+    return stats
+
+
+# =========================================================
+# PVP ENGINE
+# =========================================================
+
+def process_pvp_battle(attacker_id, defender_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ATTACKER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (attacker_id,)
+    )
+
+    attacker_stats = cursor.fetchone()
+
+    # DEFENDER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (defender_id,)
+    )
+
+    defender_stats = cursor.fetchone()
+
+    if attacker_stats is None or defender_stats is None:
+
+        conn.close()
+
+        return {
+            "success": False,
+            "message": "Oyuncu stats bulunamadı."
+        }
+
+    # DAMAGE SYSTEM
+
+    base_damage = random.randint(
+        attacker_stats["attack"],
+        attacker_stats["attack"] + 15
+    )
+
+    damage = max(
+        1,
+        base_damage - defender_stats["defense"]
+    )
+
+    # CRITICAL HIT
+
+    critical = False
+
+    if random.randint(1, 100) <= 20:
+
+        damage *= 2
+
+        critical = True
+
+    # NEW HP
+
+    new_hp = defender_stats["hp"] - damage
+
+    # =====================================================
+    # PLAYER DEAD
+    # =====================================================
+
+    if new_hp <= 0:
+
+        new_hp = 100
+
+        winner_id = attacker_id
+
+        # WIN
+
+        cursor.execute(
+            """
+            UPDATE player_stats
+            SET wins = wins + 1
+            WHERE user_id=?
+            """,
+            (attacker_id,)
+        )
+
+        # LOSS
+
+        cursor.execute(
+            """
+            UPDATE player_stats
+            SET losses = losses + 1
+            WHERE user_id=?
+            """,
+            (defender_id,)
+        )
+
+        # REWARD
+
+        add_xp(attacker_id, 100)
+
+        add_coins(attacker_id, 150)
+
+    else:
+
+        winner_id = 0
+
+    # UPDATE HP
+
+    cursor.execute(
+        """
+        UPDATE player_stats
+        SET hp=?
+        WHERE user_id=?
+        """,
+        (
+            new_hp,
+            defender_id
+        )
+    )
+
+    # BATTLE LOG
+
+    cursor.execute(
+        """
+        INSERT INTO battle_history
+        (
+            attacker_id,
+            defender_id,
+            winner_id,
+            damage,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            attacker_id,
+            defender_id,
+            winner_id,
+            damage,
+            datetime.utcnow().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return {
+        "success": True,
+        "damage": damage,
+        "critical": critical,
+        "remaining_hp": new_hp,
+        "winner_id": winner_id
+    }
+
+
+# =========================================================
+# PVP PAGE
+# =========================================================
+
+@app.route("/pvp")
+def pvp():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # PLAYERS
+
+    cursor.execute(
+        """
+        SELECT
+            users.id,
+            users.username,
+            users.level,
+            player_stats.hp,
+            player_stats.attack,
+            player_stats.defense,
+            player_stats.wins,
+            player_stats.losses
+
+        FROM users
+
+        JOIN player_stats
+        ON users.id = player_stats.user_id
+
+        WHERE users.id != ?
+        """,
+        (session["user_id"],)
+    )
+
+    players = cursor.fetchall()
+
+    # CURRENT USER STATS
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    my_stats = cursor.fetchone()
+
+    conn.close()
+
+    return render_template(
+        "pvp.html",
+        players=players,
+        my_stats=my_stats
+    )
+
+
+# =========================================================
+# ATTACK PLAYER
+# =========================================================
+
+@app.route("/attack/<int:defender_id>", methods=["POST"])
+def attack_player(defender_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    result = process_pvp_battle(
+        session["user_id"],
+        defender_id
+    )
+
+    return render_template(
+        "battle_result.html",
+        result=result
+    )
+
+
 
 
 if __name__ == "__main__":
