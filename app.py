@@ -1643,7 +1643,22 @@ def unequip_item(user_item_id):
     return redirect("/inventory")
 
 
+# =========================================================
+# HOME PAGE
+# =========================================================
 
+@app.route("/")
+def home():
+
+    if "user_id" in session:
+
+        return render_template(
+            "home.jinja2"
+        )
+
+    return render_template(
+        "index.jinja2"
+    )
 
 
 app = Flask(
@@ -1656,6 +1671,10 @@ app = Flask(
 if __name__ == "__main__":
 
     app.run(debug=True)
+
+
+
+
 
 
 
