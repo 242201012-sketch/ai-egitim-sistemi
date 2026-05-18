@@ -1150,6 +1150,71 @@ def attack_player(defender_id):
         result=result
     )
 
+# =========================================================
+# LEADERBOARD PAGE
+# =========================================================
+
+@app.route("/leaderboard")
+def leaderboard():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # TOP LEVEL
+
+    cursor.execute(
+        """
+        SELECT
+            users.username,
+            users.level,
+            users.xp,
+            users.coins,
+            player_stats.wins,
+            player_stats.losses
+
+        FROM users
+
+        LEFT JOIN player_stats
+        ON users.id = player_stats.user_id
+
+        ORDER BY users.level DESC,
+                 users.xp DESC
+
+        LIMIT 50
+        """
+    )
+
+    top_players = cursor.fetchall()
+
+    # TOP COINS
+
+    cursor.execute(
+        """
+        SELECT
+            username,
+            coins
+
+        FROM users
+
+        ORDER BY coins DESC
+
+        LIMIT 10
+        """
+    )
+
+    richest_players = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "leaderboard.html",
+        top_players=top_players,
+        richest_players=richest_players
+    )
+
+
+
 
 
 
