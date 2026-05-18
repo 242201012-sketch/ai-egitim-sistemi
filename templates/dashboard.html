@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Dashboard</title>
+
+<link rel="stylesheet" href="/static/style.css">
+
+</head>
+
+<body>
+
+<div class="box">
+
+<h1>🔥 {{user.username}}</h1>
+
+<p>⭐ XP: {{user.xp}}</p>
+<p>🔥 Level: {{user.level}}</p>
+<p>💰 Coins: {{user.coins}}</p>
+
+<div class="bar">
+<div class="fill" style="width: {{xp_percent}}%"></div>
+</div>
+
+<a href="/daily">
+<button>🎁 Daily</button>
+</a>
+
+<a href="/boss">
+<button>🔥 Boss</button>
+</a>
+
+<a href="/leaderboard">
+<button>🏆 Leaderboard</button>
+</a>
+
+<a href="/logout">
+<button>🚪 Logout</button>
+</a>
+
+</div>
+
+<div class="box">
+
+<h2>🤖 AI Teacher</h2>
+
+<form method="POST" action="/ask_ai">
+
+<input type="text" name="question">
+
+<button>Ask AI</button>
+
+</form>
+
+{% if ai_answer %}
+
+<p>{{ai_answer}}</p>
+
+{% endif %}
+
+</div>
+
+<div class="box">
+
+<h2>🎒 Inventory</h2>
+
+<ul>
+
+{% for item in inventory %}
+
+<li>
+{{item.item}} - {{item.rarity}}
+</li>
+
+{% endfor %}
+
+</ul>
+
+</div>
+
+</body>
+</html>
