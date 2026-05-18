@@ -598,6 +598,17 @@ def register():
 
         create_user_streak(new_user_id)
 
+       
+        # =========================================================
+        # REGISTER İÇİNE EKLE
+        # create_user_streak ALTINA
+        # =========================================================
+
+        create_player_stats(
+            new_user_id
+        )
+
+
         give_achievement(
             new_user_id,
             "First Login"
