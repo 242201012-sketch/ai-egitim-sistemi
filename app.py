@@ -1,484 +1,658 @@
+import datetime
+import sqlite3
+
 from flask import (
     Flask,
-    render_template_string,
+    render_template,
     request,
     redirect,
-    session,
-    jsonify
+    session
 )
-
-import sqlite3
-import requests
-import random
-import os
-
-from datetime import datetime
-from sqlite3 import OperationalError, IntegrityError
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
 
 # =========================================================
 # APP
 # =========================================================
 
 app = Flask(__name__)
-app.secret_key = "SUPER_SECRET_KEY_123"
+
+app.secret_key = "SUPER_SECRET_KEY"
 
 DATABASE = "game.db"
+
 
 # =========================================================
 # DATABASE
 # =========================================================
 
 def get_db():
+
     conn = sqlite3.connect(DATABASE)
+
     conn.row_factory = sqlite3.Row
+
     return conn
+
+
+# =========================================================
+# INIT DATABASE
+# =========================================================
 
 def init_db():
 
-    try:
+    conn = get_db()
 
-        conn = get_db()
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        # USERS
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT,
-            xp INTEGER DEFAULT 0,
-            level INTEGER DEFAULT 1,
-            hp INTEGER DEFAULT 100,
-            coins INTEGER DEFAULT 100,
-            role TEXT DEFAULT 'user',
-            last_daily TEXT
-        )
-        """)
+    # USERS
 
-        # INVENTORY
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS inventory(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT,
-            item_name TEXT,
-            rarity TEXT
-        )
-        """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users(
 
-        # QUIZ
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS quiz_scores(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT,
-            score INTEGER
-        )
-        """)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        conn.commit()
-        conn.close()
+        username TEXT UNIQUE,
 
-    except OperationalError as e:
-        print(f"DB ERROR: {e}")
+        password TEXT,
+
+        xp INTEGER DEFAULT 0,
+
+        level INTEGER DEFAULT 1,
+
+        coins INTEGER DEFAULT 0
+    )
+    """)
+
+    # INVENTORY
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS inventory(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER,
+
+        item_name TEXT,
+
+        quantity INTEGER DEFAULT 1
+    )
+    """)
+
+    conn.commit()
+
+    conn.close()
+
 
 init_db()
 
-# =========================================================
-# HTML
-# =========================================================
-
-HTML = """
-
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<title>🔥 FULL RPG SYSTEM</title>
-
-<style>
-
-body{
-    background:#0f172a;
-    color:white;
-    font-family:Arial;
-    padding:30px;
-}
-
-.card{
-    background:#1e293b;
-    padding:20px;
-    border-radius:20px;
-    margin-bottom:20px;
-}
-
-input{
-    width:90%;
-    padding:12px;
-    margin-top:10px;
-    border:none;
-    border-radius:10px;
-}
-
-button{
-    padding:12px;
-    margin-top:10px;
-    border:none;
-    border-radius:10px;
-    background:lime;
-    font-weight:bold;
-    cursor:pointer;
-}
-
-.bar{
-    width:100%;
-    background:#334155;
-    border-radius:20px;
-    overflow:hidden;
-}
-
-.fill{
-    height:25px;
-    background:lime;
-}
-
-li{
-    margin-bottom:10px;
-}
-
-.admin{
-    color:red;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h1>🔥 FULL AI RPG SYSTEM</h1>
-
-{% if not logged_in %}
-
-<div class="card">
-
-<h2>Register</h2>
-
-<form method="POST" action="/register">
-
-<input type="text" name="username" placeholder="Username" required>
-
-<input type="password" name="password" placeholder="Password" required>
-
-<button type="submit">Register</button>
-
-</form>
-
-</div>
-
-<div class="card">
-
-<h2>Login</h2>
-
-<form method="POST" action="/login">
-
-<input type="text" name="username" placeholder="Username" required>
-
-<input type="password" name="password" placeholder="Password" required>
-
-<button type="submit">Login</button>
-
-</form>
-
-</div>
-
-{% else %}
-
-<div class="card">
-
-<h2>👤 {{ user['username'] }}</h2>
-
-<p>🔥 Level: {{ user['level'] }}</p>
-<p>⭐ XP: {{ user['xp'] }}</p>
-<p>💰 Coins: {{ user['coins'] }}</p>
-<p>❤️ HP: {{ user['hp'] }}</p>
-
-<div class="bar">
-<div class="fill" style="width: {{xp_percent}}%"></div>
-</div>
-
-<a href="/daily">
-<button>🎁 Daily Reward</button>
-</a>
-
-<a href="/boss">
-<button>🔥 Boss Battle</button>
-</a>
-
-<a href="/quiz">
-<button>🧠 Quiz</button>
-</a>
-
-<a href="/logout">
-<button>🚪 Logout</button>
-</a>
-
-</div>
-
-<div class="card">
-
-<h2>🤖 AI Teacher</h2>
-
-<form method="POST" action="/ask_ai">
-
-<input type="text" name="question" placeholder="AI Question..." required>
-
-<button type="submit">Ask AI</button>
-
-</form>
-
-{% if answer %}
-<hr>
-<p>{{answer}}</p>
-{% endif %}
-
-</div>
-
-<div class="card">
-
-<h2>🎒 Inventory</h2>
-
-<ul>
-
-{% for item in inventory %}
-
-<li>
-{{item['item_name']}} - {{item['rarity']}}
-</li>
-
-{% endfor %}
-
-</ul>
-
-</div>
-
-{% if user['role'] == 'admin' %}
-
-<div class="card">
-
-<h2 class="admin">🛠 ADMIN PANEL</h2>
-
-<p>Total Users: {{total_users}}</p>
-
-<p>Total Inventory Items: {{total_items}}</p>
-
-</div>
-
-{% endif %}
-
-{% endif %}
-
-</body>
-</html>
-
-"""
 
 # =========================================================
-# HELPERS
+# ACHIEVEMENT SYSTEM
 # =========================================================
 
-def get_user(username):
+def init_achievement_system():
 
-    try:
+    conn = get_db()
 
-        conn = get_db()
-        cursor = conn.cursor()
+    cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT * FROM users WHERE username=?",
-            (username,)
-        )
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS achievements(
 
-        user = cursor.fetchone()
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        conn.close()
+        title TEXT,
 
-        return user
+        description TEXT,
 
-    except OperationalError:
-        return None
+        reward INTEGER
+    )
+    """)
 
-def get_inventory(username):
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_achievements(
 
-    try:
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        conn = get_db()
-        cursor = conn.cursor()
+        user_id INTEGER,
 
-        cursor.execute(
-            "SELECT * FROM inventory WHERE username=?",
-            (username,)
-        )
+        achievement_id INTEGER
+    )
+    """)
 
-        items = cursor.fetchall()
+    conn.commit()
 
-        conn.close()
-
-        return items
-
-    except OperationalError:
-        return []
-
-# =========================================================
-# HOME
-# =========================================================
-
-@app.route("/")
-def home():
-
-    if "username" not in session:
-
-        return render_template_string(
-            HTML,
-            logged_in=False
-        )
-
-    username = session["username"]
-
-    user = get_user(username)
-
-    if user is None:
-        session.clear()
-        return redirect("/")
-
-    inventory = get_inventory(username)
-
-    xp_percent = user["xp"] % 100
-
-    total_users = 0
-    total_items = 0
-
-    try:
-
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT COUNT(*) FROM users")
-        total_users = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM inventory")
-        total_items = cursor.fetchone()[0]
-
-        conn.close()
-
-    except OperationalError:
-        pass
-
-    return render_template_string(
-        HTML,
-        logged_in=True,
-        user=user,
-        inventory=inventory,
-        xp_percent=xp_percent,
-        total_users=total_users,
-        total_items=total_items,
-        answer=None
+    cursor.execute(
+        "SELECT * FROM achievements"
     )
 
-# =========================================================
-# REGISTER
-# =========================================================
+    achievements = cursor.fetchall()
 
-@app.route("/register", methods=["POST"])
-def register():
+    if len(achievements) == 0:
 
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "").strip()
+        default_achievements = [
 
-    if len(username) < 3:
-        return "Username too short"
+            (
+                "First Login",
+                "İlk giriş yapıldı",
+                50
+            ),
 
-    if len(password) < 3:
-        return "Password too short"
+            (
+                "Level 5",
+                "Level 5 oldun",
+                250
+            ),
 
-    try:
+            (
+                "XP Master",
+                "500 XP kazandın",
+                500
+            ),
 
-        conn = get_db()
-        cursor = conn.cursor()
+            (
+                "Boss Slayer",
+                "Boss savaşı tamamlandı",
+                300
+            ),
 
-        role = "admin" if username.lower() == "efe" else "user"
+            (
+                "Rich Player",
+                "1000 coin toplandı",
+                400
+            )
 
-        cursor.execute("""
-        INSERT INTO users(
-            username,
-            password,
-            xp,
-            level,
-            hp,
-            coins,
-            role
+        ]
+
+        cursor.executemany(
+            """
+            INSERT INTO achievements
+            (
+                title,
+                description,
+                reward
+            )
+            VALUES (?, ?, ?)
+            """,
+            default_achievements
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            username,
-            password,
-            0,
-            1,
-            100,
-            100,
-            role
-        ))
 
-        conn.commit()
+    conn.commit()
+
+    conn.close()
+
+
+init_achievement_system()
+
+
+# =========================================================
+# DAILY STREAK SYSTEM
+# =========================================================
+
+def init_streak_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS daily_streaks(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER UNIQUE,
+
+        streak INTEGER DEFAULT 0,
+
+        last_claim TEXT
+    )
+    """)
+
+    conn.commit()
+
+    conn.close()
+
+
+init_streak_system()
+
+
+# =========================================================
+# XP SYSTEM
+# =========================================================
+
+def add_xp(user_id, amount):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+
         conn.close()
 
-        return redirect("/")
+        return
 
-    except IntegrityError:
-        return "Username already exists"
+    new_xp = user["xp"] + amount
 
-    except OperationalError as e:
-        return f"Database error: {e}"
+    new_level = (new_xp // 100) + 1
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET xp=?,
+            level=?
+        WHERE id=?
+        """,
+        (
+            new_xp,
+            new_level,
+            user_id
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    check_achievements(user_id)
+
 
 # =========================================================
-# LOGIN
+# COIN SYSTEM
 # =========================================================
 
-@app.route("/login", methods=["POST"])
-def login():
+def add_coins(user_id, amount):
 
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "").strip()
+    conn = get_db()
 
-    try:
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins + ?
+        WHERE id=?
+        """,
+        (
+            amount,
+            user_id
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+# =========================================================
+# RANK SYSTEM
+# =========================================================
+
+def get_rank(level):
+
+    if level >= 100:
+
+        return {
+            "name": "🌌 UNIVERSAL GOD",
+            "color": "#ff0000"
+        }
+
+    elif level >= 75:
+
+        return {
+            "name": "👑 AI LEGEND",
+            "color": "#ff9900"
+        }
+
+    elif level >= 50:
+
+        return {
+            "name": "💎 MASTER",
+            "color": "#00ffff"
+        }
+
+    elif level >= 35:
+
+        return {
+            "name": "🔥 DIAMOND",
+            "color": "#00aaff"
+        }
+
+    elif level >= 25:
+
+        return {
+            "name": "🥇 GOLD",
+            "color": "#ffd700"
+        }
+
+    elif level >= 15:
+
+        return {
+            "name": "🥈 SILVER",
+            "color": "#c0c0c0"
+        }
+
+    elif level >= 5:
+
+        return {
+            "name": "🥉 BRONZE",
+            "color": "#cd7f32"
+        }
+
+    else:
+
+        return {
+            "name": "👶 BEGINNER",
+            "color": "#ffffff"
+        }
+
+
+# =========================================================
+# ACHIEVEMENT HELPERS
+# =========================================================
+
+def has_achievement(user_id, achievement_title):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT ua.id
+        FROM user_achievements ua
+
+        JOIN achievements a
+        ON ua.achievement_id = a.id
+
+        WHERE ua.user_id=? AND a.title=?
+        """,
+        (
+            user_id,
+            achievement_title
+        )
+    )
+
+    result = cursor.fetchone()
+
+    conn.close()
+
+    return result is not None
+
+
+def give_achievement(user_id, achievement_title):
+
+    if has_achievement(user_id, achievement_title):
+
+        return
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM achievements
+        WHERE title=?
+        """,
+        (achievement_title,)
+    )
+
+    achievement = cursor.fetchone()
+
+    if achievement is None:
+
+        conn.close()
+
+        return
+
+    cursor.execute(
+        """
+        INSERT INTO user_achievements
+        (
+            user_id,
+            achievement_id
+        )
+        VALUES (?, ?)
+        """,
+        (
+            user_id,
+            achievement["id"]
+        )
+    )
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins + ?
+        WHERE id=?
+        """,
+        (
+            achievement["reward"],
+            user_id
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+def check_achievements(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    if user is None:
+
+        return
+
+    if user["level"] >= 5:
+
+        give_achievement(
+            user_id,
+            "Level 5"
+        )
+
+    if user["xp"] >= 500:
+
+        give_achievement(
+            user_id,
+            "XP Master"
+        )
+
+    if user["coins"] >= 1000:
+
+        give_achievement(
+            user_id,
+            "Rich Player"
+        )
+
+
+# =========================================================
+# STREAK FUNCTIONS
+# =========================================================
+
+def create_user_streak(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO daily_streaks
+        (
+            user_id,
+            streak,
+            last_claim
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            user_id,
+            0,
+            ""
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+def get_streak(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM daily_streaks
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    streak = cursor.fetchone()
+
+    conn.close()
+
+    return streak
+
+
+
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+
+        password = request.form["password"]
+
+        hashed_password = generate_password_hash(password)
 
         conn = get_db()
+
         cursor = conn.cursor()
 
-        cursor.execute("""
-        SELECT * FROM users
-        WHERE username=? AND password=?
-        """, (
-            username,
-            password
-        ))
+        cursor.execute(
+            """
+            INSERT INTO users
+            (
+                username,
+                password
+            )
+            VALUES (?, ?)
+            """,
+            (
+                username,
+                hashed_password
+            )
+        )
+
+        conn.commit()
+
+        new_user_id = cursor.lastrowid
+
+        create_user_streak(new_user_id)
+
+       
+        # =========================================================
+        # REGISTER İÇİNE EKLE
+        # create_user_streak ALTINA
+        # =========================================================
+
+        create_player_stats(
+            new_user_id
+        )
+
+
+        give_achievement(
+            new_user_id,
+            "First Login"
+        )
+
+        conn.close()
+
+        return redirect("/login")
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+
+        password = request.form["password"]
+
+        conn = get_db()
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE username=?
+            """,
+            (username,)
+        )
 
         user = cursor.fetchone()
 
         conn.close()
 
-        if user is None:
-            return "Wrong username or password"
+        if user and check_password_hash(
+            user["password"],
+            password
+        ):
 
-        session["username"] = username
+            session["user_id"] = user["id"]
 
-        return redirect("/")
+            return redirect("/")
 
-    except OperationalError as e:
-        return f"DB ERROR: {e}"
+        return "Hatalı giriş"
 
-# =========================================================
-# LOGOUT
-# =========================================================
+    return render_template("login.html")
+
 
 @app.route("/logout")
 def logout():
@@ -487,263 +661,1022 @@ def logout():
 
     return redirect("/")
 
-# =========================================================
-# DAILY REWARD
-# =========================================================
 
-@app.route("/daily")
-def daily():
+@app.route("/boss_attack", methods=["POST"])
+def boss_attack():
 
-    if "username" not in session:
-        return redirect("/")
+    if "user_id" not in session:
 
-    username = session["username"]
+        return redirect("/login")
 
-    try:
+    add_xp(
+        session["user_id"],
+        50
+    )
 
-        conn = get_db()
-        cursor = conn.cursor()
+    add_coins(
+        session["user_id"],
+        25
+    )
 
-        cursor.execute(
-            "SELECT * FROM users WHERE username=?",
-            (username,)
-        )
+    give_achievement(
+        session["user_id"],
+        "Boss Slayer"
+    )
 
-        user = cursor.fetchone()
+    return redirect("/profile")
 
-        if user is None:
-            session.clear()
-            return redirect("/")
 
-        today = datetime.now().strftime("%Y-%m-%d")
+@app.route("/profile")
+def profile():
 
-        if user["last_daily"] == today:
-            conn.close()
-            return "Daily already claimed"
+    if "user_id" not in session:
 
-        reward = random.randint(50, 150)
+        return redirect("/login")
 
-        cursor.execute("""
-        UPDATE users
-        SET coins = coins + ?,
-            last_daily = ?
-        WHERE username=?
-        """, (
-            reward,
-            today,
-            username
-        ))
+    conn = get_db()
 
-        conn.commit()
-        conn.close()
+    cursor = conn.cursor()
 
-        return redirect("/")
-
-    except OperationalError as e:
-        return f"DB ERROR: {e}"
-
-# =========================================================
-# BOSS BATTLE
-# =========================================================
-
-@app.route("/boss")
-def boss():
-
-    if "username" not in session:
-        return redirect("/")
-
-    username = session["username"]
-
-    rarities = [
-        "Common",
-        "Rare",
-        "Epic",
-        "Legendary"
-    ]
-
-    items = [
-        "Dragon Sword",
-        "Cyber Armor",
-        "AI Crystal",
-        "Shadow Blade",
-        "Quantum Staff"
-    ]
-
-    xp_gain = random.randint(20, 80)
-    coin_gain = random.randint(10, 60)
-
-    item = random.choice(items)
-    rarity = random.choice(rarities)
-
-    try:
-
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-        UPDATE users
-        SET xp = xp + ?,
-            coins = coins + ?
-        WHERE username=?
-        """, (
-            xp_gain,
-            coin_gain,
-            username
-        ))
-
-        cursor.execute("""
-        INSERT INTO inventory(
-            username,
-            item_name,
-            rarity
-        )
-        VALUES (?, ?, ?)
-        """, (
-            username,
-            item,
-            rarity
-        ))
-
-        cursor.execute(
-            "SELECT xp FROM users WHERE username=?",
-            (username,)
-        )
-
-        xp = cursor.fetchone()["xp"]
-
-        level = (xp // 100) + 1
-
-        cursor.execute("""
-        UPDATE users
-        SET level=?
-        WHERE username=?
-        """, (
-            level,
-            username
-        ))
-
-        conn.commit()
-        conn.close()
-
-        return f"""
-        <body style='background:black;color:white;font-family:Arial;padding:40px'>
-        <h1>🔥 BOSS DEFEATED</h1>
-
-        <p>XP +{xp_gain}</p>
-        <p>Coins +{coin_gain}</p>
-
-        <h2>🎁 Loot</h2>
-
-        <p>{item} ({rarity})</p>
-
-        <a href='/'>
-        <button>Back</button>
-        </a>
-
-        </body>
+    cursor.execute(
         """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
 
-    except OperationalError as e:
-        return f"DB ERROR: {e}"
+    user = cursor.fetchone()
 
-# =========================================================
-# QUIZ
-# =========================================================
+    cursor.execute(
+        """
+        SELECT *
+        FROM inventory
+        WHERE user_id=?
+        """,
+        (session["user_id"],)
+    )
 
-@app.route("/quiz")
-def quiz():
+    inventory = cursor.fetchall()
 
-    questions = [
-        "Python kim tarafından geliştirildi?",
-        "HTML neyin kısaltmasıdır?",
-        "CSS ne işe yarar?",
-        "Flask hangi dil frameworküdür?"
-    ]
+    cursor.execute(
+        """
+        SELECT
+            a.title,
+            a.description,
+            a.reward
 
-    return jsonify({
-        "question": random.choice(questions)
-    })
+        FROM user_achievements ua
 
-# =========================================================
-# AI SYSTEM (OLLAMA)
-# =========================================================
+        JOIN achievements a
+        ON ua.achievement_id = a.id
 
-@app.route("/ask_ai", methods=["POST"])
-def ask_ai():
+        WHERE ua.user_id=?
+        """,
+        (session["user_id"],)
+    )
 
-    if "username" not in session:
-        return redirect("/")
+    achievements = cursor.fetchall()
 
-    question = request.form.get("question", "").strip()
+    rank_data = get_rank(
+        user["level"]
+    )
 
-    username = session["username"]
+    rank = rank_data["name"]
 
-    user = get_user(username)
+    rank_color = rank_data["color"]
 
-    if user is None:
-        session.clear()
-        return redirect("/")
+    streak = get_streak(
+        session["user_id"]
+    )
 
-    inventory = get_inventory(username)
+    conn.close()
 
-    xp_percent = user["xp"] % 100
-
-    answer = ""
-
-    try:
-
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "llama3",
-                "prompt": question,
-                "stream": False
-            },
-            timeout=120
-        )
-
-        if response.status_code != 200:
-            answer = f"AI HTTP ERROR: {response.status_code}"
-
-        else:
-
-            data = response.json()
-
-            answer = data.get(
-                "response",
-                "AI cevap üretemedi"
-            )
-
-    except requests.exceptions.ConnectionError:
-        answer = "Ollama server çalışmıyor"
-
-    except requests.exceptions.Timeout:
-        answer = "AI timeout"
-
-    except requests.exceptions.RequestException as e:
-        answer = f"AI REQUEST ERROR: {e}"
-
-    return render_template_string(
-        HTML,
-        logged_in=True,
+    return render_template(
+        "profile.html",
         user=user,
         inventory=inventory,
-        xp_percent=xp_percent,
-        total_users=0,
-        total_items=0,
-        answer=answer
+        achievements=achievements,
+        rank=rank,
+        rank_color=rank_color,
+        streak=streak
     )
 
 # =========================================================
-# MAIN
+# PVP BATTLE SYSTEM
+# app.py içine TAM ENTEGRE EKLE
 # =========================================================
+
+import random
+
+
+# =========================================================
+# PVP TABLE
+# =========================================================
+
+def init_pvp_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # PLAYER STATS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS player_stats(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER UNIQUE,
+
+        hp INTEGER DEFAULT 100,
+
+        attack INTEGER DEFAULT 10,
+
+        defense INTEGER DEFAULT 5,
+
+        wins INTEGER DEFAULT 0,
+
+        losses INTEGER DEFAULT 0
+    )
+    """)
+
+    # BATTLE HISTORY
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS battle_history(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        attacker_id INTEGER,
+
+        defender_id INTEGER,
+
+        winner_id INTEGER,
+
+        damage INTEGER,
+
+        created_at TEXT
+    )
+    """)
+
+    conn.commit()
+
+    conn.close()
+
+
+init_pvp_system()
+
+
+# =========================================================
+# CREATE PLAYER STATS
+# register() ile uyumlu
+# =========================================================
+
+def create_player_stats(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO player_stats
+        (
+            user_id,
+            hp,
+            attack,
+            defense,
+            wins,
+            losses
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            100,
+            10,
+            5,
+            0,
+            0
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+
+# =========================================================
+# GET PLAYER STATS
+# =========================================================
+
+def get_player_stats(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    stats = cursor.fetchone()
+
+    conn.close()
+
+    return stats
+
+
+# =========================================================
+# PVP ENGINE
+# =========================================================
+
+def process_pvp_battle(attacker_id, defender_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ATTACKER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (attacker_id,)
+    )
+
+    attacker_stats = cursor.fetchone()
+
+    # DEFENDER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (defender_id,)
+    )
+
+    defender_stats = cursor.fetchone()
+
+    if attacker_stats is None or defender_stats is None:
+
+        conn.close()
+
+        return {
+            "success": False,
+            "message": "Oyuncu stats bulunamadı."
+        }
+
+    # DAMAGE SYSTEM
+
+    base_damage = random.randint(
+        attacker_stats["attack"],
+        attacker_stats["attack"] + 15
+    )
+
+    damage = max(
+        1,
+        base_damage - defender_stats["defense"]
+    )
+
+    # CRITICAL HIT
+
+    critical = False
+
+    if random.randint(1, 100) <= 20:
+
+        damage *= 2
+
+        critical = True
+
+    # NEW HP
+
+    new_hp = defender_stats["hp"] - damage
+
+    # =====================================================
+    # PLAYER DEAD
+    # =====================================================
+
+    if new_hp <= 0:
+
+        new_hp = 100
+
+        winner_id = attacker_id
+
+        # WIN
+
+        cursor.execute(
+            """
+            UPDATE player_stats
+            SET wins = wins + 1
+            WHERE user_id=?
+            """,
+            (attacker_id,)
+        )
+
+        # LOSS
+
+        cursor.execute(
+            """
+            UPDATE player_stats
+            SET losses = losses + 1
+            WHERE user_id=?
+            """,
+            (defender_id,)
+        )
+
+        # REWARD
+
+        add_xp(attacker_id, 100)
+
+        add_coins(attacker_id, 150)
+
+    else:
+
+        winner_id = 0
+
+    # UPDATE HP
+
+    cursor.execute(
+        """
+        UPDATE player_stats
+        SET hp=?
+        WHERE user_id=?
+        """,
+        (
+            new_hp,
+            defender_id
+        )
+    )
+
+    # BATTLE LOG
+
+    cursor.execute(
+        """
+        INSERT INTO battle_history
+        (
+            attacker_id,
+            defender_id,
+            winner_id,
+            damage,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            attacker_id,
+            defender_id,
+            winner_id,
+            damage,
+            datetime.utcnow().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return {
+        "success": True,
+        "damage": damage,
+        "critical": critical,
+        "remaining_hp": new_hp,
+        "winner_id": winner_id
+    }
+
+
+# =========================================================
+# PVP PAGE
+# =========================================================
+
+@app.route("/pvp")
+def pvp():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # PLAYERS
+
+    cursor.execute(
+        """
+        SELECT
+            users.id,
+            users.username,
+            users.level,
+            player_stats.hp,
+            player_stats.attack,
+            player_stats.defense,
+            player_stats.wins,
+            player_stats.losses
+
+        FROM users
+
+        JOIN player_stats
+        ON users.id = player_stats.user_id
+
+        WHERE users.id != ?
+        """,
+        (session["user_id"],)
+    )
+
+    players = cursor.fetchall()
+
+    # CURRENT USER STATS
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM player_stats
+        WHERE user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    my_stats = cursor.fetchone()
+
+    conn.close()
+
+    return render_template(
+        "pvp.html",
+        players=players,
+        my_stats=my_stats
+    )
+
+
+# =========================================================
+# ATTACK PLAYER
+# =========================================================
+
+@app.route("/attack/<int:defender_id>", methods=["POST"])
+def attack_player(defender_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    result = process_pvp_battle(
+        session["user_id"],
+        defender_id
+    )
+
+    return render_template(
+        "battle_result.html",
+        result=result
+    )
+
+# =========================================================
+# LEADERBOARD PAGE
+# =========================================================
+
+@app.route("/leaderboard")
+def leaderboard():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # TOP LEVEL
+
+    cursor.execute(
+        """
+        SELECT
+            users.username,
+            users.level,
+            users.xp,
+            users.coins,
+            player_stats.wins,
+            player_stats.losses
+
+        FROM users
+
+        LEFT JOIN player_stats
+        ON users.id = player_stats.user_id
+
+        ORDER BY users.level DESC,
+                 users.xp DESC
+
+        LIMIT 50
+        """
+    )
+
+    top_players = cursor.fetchall()
+
+    # TOP COINS
+
+    cursor.execute(
+        """
+        SELECT
+            username,
+            coins
+
+        FROM users
+
+        ORDER BY coins DESC
+
+        LIMIT 10
+        """
+    )
+
+    richest_players = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "leaderboard.html",
+        top_players=top_players,
+        richest_players=richest_players
+    )
+
+# =========================================================
+# SHOP + EQUIPMENT SYSTEM
+# TAM ENTEGRE app.py KODU
+# =========================================================
+
+# =========================================================
+# SHOP TABLES
+# =========================================================
+
+def init_shop_system():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ITEMS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS items(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        name TEXT,
+
+        rarity TEXT,
+
+        price INTEGER,
+
+        attack INTEGER DEFAULT 0,
+
+        defense INTEGER DEFAULT 0,
+
+        hp INTEGER DEFAULT 0
+    )
+    """)
+
+    # USER ITEMS
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_items(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER,
+
+        item_id INTEGER,
+
+        equipped INTEGER DEFAULT 0
+    )
+    """)
+
+    conn.commit()
+
+    # DEFAULT ITEMS
+
+    cursor.execute(
+        "SELECT * FROM items"
+    )
+
+    items = cursor.fetchall()
+
+    if len(items) == 0:
+
+        default_items = [
+
+            (
+                "Wooden Sword",
+                "Common",
+                100,
+                5,
+                0,
+                0
+            ),
+
+            (
+                "Iron Sword",
+                "Rare",
+                300,
+                15,
+                0,
+                0
+            ),
+
+            (
+                "Knight Armor",
+                "Epic",
+                500,
+                0,
+                20,
+                50
+            ),
+
+            (
+                "Legendary Blade",
+                "Legendary",
+                1000,
+                50,
+                10,
+                100
+            )
+
+        ]
+
+        cursor.executemany(
+            """
+            INSERT INTO items
+            (
+                name,
+                rarity,
+                price,
+                attack,
+                defense,
+                hp
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            default_items
+        )
+
+    conn.commit()
+
+    conn.close()
+
+
+init_shop_system()
+
+
+# =========================================================
+# GET EQUIPMENT BONUS
+# =========================================================
+
+def get_equipment_bonus(user_id):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            items.attack,
+            items.defense,
+            items.hp
+
+        FROM user_items
+
+        JOIN items
+        ON user_items.item_id = items.id
+
+        WHERE user_items.user_id=?
+        AND user_items.equipped=1
+        """,
+        (user_id,)
+    )
+
+    items = cursor.fetchall()
+
+    conn.close()
+
+    total_attack = 0
+    total_defense = 0
+    total_hp = 0
+
+    for item in items:
+
+        total_attack += item["attack"]
+        total_defense += item["defense"]
+        total_hp += item["hp"]
+
+    return {
+        "attack": total_attack,
+        "defense": total_defense,
+        "hp": total_hp
+    }
+
+
+# =========================================================
+# SHOP PAGE
+# =========================================================
+
+@app.route("/shop")
+def shop():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM items
+        """
+    )
+
+    items = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
+
+    return render_template(
+        "shop.html",
+        items=items,
+        user=user
+    )
+
+
+# =========================================================
+# BUY ITEM
+# =========================================================
+
+@app.route("/buy_item/<int:item_id>", methods=["POST"])
+def buy_item(item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    # ITEM
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM items
+        WHERE id=?
+        """,
+        (item_id,)
+    )
+
+    item = cursor.fetchone()
+
+    if item is None:
+
+        conn.close()
+
+        return "Item bulunamadı"
+
+    # USER
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (session["user_id"],)
+    )
+
+    user = cursor.fetchone()
+
+    if user["coins"] < item["price"]:
+
+        conn.close()
+
+        return "Yetersiz coin"
+
+    # REMOVE COINS
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET coins = coins - ?
+        WHERE id=?
+        """,
+        (
+            item["price"],
+            session["user_id"]
+        )
+    )
+
+    # ADD ITEM
+
+    cursor.execute(
+        """
+        INSERT INTO user_items
+        (
+            user_id,
+            item_id,
+            equipped
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            session["user_id"],
+            item_id,
+            0
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+# =========================================================
+# INVENTORY PAGE
+# =========================================================
+
+@app.route("/inventory")
+def inventory_page():
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            user_items.id,
+            user_items.equipped,
+
+            items.name,
+            items.rarity,
+            items.attack,
+            items.defense,
+            items.hp
+
+        FROM user_items
+
+        JOIN items
+        ON user_items.item_id = items.id
+
+        WHERE user_items.user_id=?
+        """,
+        (session["user_id"],)
+    )
+
+    inventory = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "inventory.html",
+        inventory=inventory
+    )
+
+
+# =========================================================
+# EQUIP ITEM
+# =========================================================
+
+@app.route("/equip_item/<int:user_item_id>", methods=["POST"])
+def equip_item(user_item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE user_items
+        SET equipped=1
+        WHERE id=?
+        AND user_id=?
+        """,
+        (
+            user_item_id,
+            session["user_id"]
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+# =========================================================
+# UNEQUIP ITEM
+# =========================================================
+
+@app.route("/unequip_item/<int:user_item_id>", methods=["POST"])
+def unequip_item(user_item_id):
+
+    if "user_id" not in session:
+
+        return redirect("/login")
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE user_items
+        SET equipped=0
+        WHERE id=?
+        AND user_id=?
+        """,
+        (
+            user_item_id,
+            session["user_id"]
+        )
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/inventory")
+
+
+# =========================================================
+# HOME PAGE
+# =========================================================
+
+@app.route("/")
+def home():
+
+    if "user_id" in session:
+
+        return render_template(
+            "home.jinja2"
+        )
+
+    return render_template(
+        "index.jinja2"
+    )
+
+
+app = Flask(
+    __name__,
+    static_folder="static"
+)
+
+@app.route("/")
+def home():
+    return "Ana Sayfa"
+
+@app.route("/index")
+def index():
+    return "Index"
+
+
 
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True)
 
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=True
-    )
+
+
+
+
+
+
+
