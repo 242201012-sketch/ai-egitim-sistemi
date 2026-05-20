@@ -1,189 +1,245 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, redirect, session
+import sqlite3
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-HTML_PAGE = """
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Eğitim Chatbot</title>
 
-    <style>
+# DATABASE
 
-        *{
-            margin:0;
-            padding:0;
-            box-sizing:border-box;
-            font-family:Arial;
-        }
+conn = sqlite3.connect("users.db")
+cursor = conn.cursor()
 
-        body{
-            background:#0f172a;
-            color:white;
-            height:100vh;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-        }
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    password TEXT
+)
+""")
 
-        .container{
-            width:90%;
-            max-width:900px;
-            height:90vh;
-            background:#1e293b;
-            border-radius:20px;
-            display:flex;
-            flex-direction:column;
-            overflow:hidden;
-            box-shadow:0 0 30px rgba(0,0,0,0.4);
-        }
+conn.commit()
+conn.close()
 
-        .header{
-            background:#38bdf8;
-            padding:20px;
-            font-size:28px;
-            font-weight:bold;
-            text-align:center;
-        }
 
-        .chat-box{
-            flex:1;
-            padding:20px;
-            overflow-y:auto;
-        }
-
-        .message{
-            margin-bottom:15px;
-            padding:15px;
-            border-radius:12px;
-            max-width:80%;
-        }
-
-        .user{
-            background:#2563eb;
-            margin-left:auto;
-        }
-
-        .bot{
-            background:#334155;
-        }
-
-        .input-area{
-            display:flex;
-            padding:20px;
-            background:#111827;
-        }
-
-        input{
-            flex:1;
-            padding:15px;
-            border:none;
-            border-radius:10px;
-            outline:none;
-            font-size:16px;
-        }
-
-        button{
-            margin-left:10px;
-            padding:15px 25px;
-            border:none;
-            border-radius:10px;
-            background:#38bdf8;
-            color:white;
-            font-size:16px;
-            cursor:pointer;
-        }
-
-        button:hover{
-            background:#0ea5e9;
-        }
-
-    </style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-    <div class="header">
-        🤖 AI Eğitim Chatbot
-    </div>
-
-    <div class="chat-box" id="chatBox">
-
-        <div class="message bot">
-            Merhaba 👋 Ben AI eğitim asistanıyım.
-        </div>
-
-    </div>
-
-    <div class="input-area">
-
-        <input type="text" id="userInput" placeholder="Mesaj yaz...">
-
-        <button onclick="sendMessage()">
-            Gönder
-        </button>
-
-    </div>
-
-</div>
-
-<script>
-
-async function sendMessage(){
-
-    let input = document.getElementById("userInput");
-    let chatBox = document.getElementById("chatBox");
-
-    let message = input.value;
-
-    if(message.trim() === ""){
-        return;
-    }
-
-    chatBox.innerHTML += `
-        <div class="message user">
-            ${message}
-        </div>
-    `;
-
-    input.value = "";
-
-    let response = await fetch("/chat",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-            message:message
-        })
-    });
-
-    let data = await response.json();
-
-    chatBox.innerHTML += `
-        <div class="message bot">
-            ${data.reply}
-        </div>
-    `;
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-</script>
-
-</body>
-</html>
-"""
+# LOGIN PAGE
 
 @app.route("/")
 def home():
-    return HTML_PAGE
 
+    if "user" not in session:
+        return redirect("/login")
+
+    username = session["user"]
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <title>AI Eğitim Sistemi</title>
+
+        <style>
+
+            *{{
+                margin:0;
+                padding:0;
+                box-sizing:border-box;
+                font-family:Arial;
+            }}
+
+            body{{
+                background:#0f172a;
+                color:white;
+            }}
+
+            nav{{
+                background:#1e293b;
+                padding:20px;
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+            }}
+
+            nav h1{{
+                color:#38bdf8;
+            }}
+
+            nav a{{
+                color:white;
+                text-decoration:none;
+                background:#ef4444;
+                padding:10px 20px;
+                border-radius:10px;
+            }}
+
+            .hero{{
+                height:90vh;
+                display:flex;
+                flex-direction:column;
+                justify-content:center;
+                align-items:center;
+                text-align:center;
+            }}
+
+            .hero h2{{
+                font-size:60px;
+                margin-bottom:20px;
+            }}
+
+            .hero p{{
+                font-size:22px;
+                color:#cbd5e1;
+            }}
+
+            .chat-box{{
+                margin-top:40px;
+                width:600px;
+                max-width:90%;
+                background:#1e293b;
+                padding:20px;
+                border-radius:20px;
+            }}
+
+            .messages{{
+                height:300px;
+                overflow-y:auto;
+                margin-bottom:20px;
+            }}
+
+            .message{{
+                padding:12px;
+                margin-bottom:10px;
+                border-radius:10px;
+            }}
+
+            .user{{
+                background:#2563eb;
+            }}
+
+            .bot{{
+                background:#334155;
+            }}
+
+            .input-area{{
+                display:flex;
+            }}
+
+            input{{
+                flex:1;
+                padding:15px;
+                border:none;
+                border-radius:10px;
+                outline:none;
+            }}
+
+            button{{
+                margin-left:10px;
+                padding:15px 25px;
+                border:none;
+                border-radius:10px;
+                background:#38bdf8;
+                color:white;
+                cursor:pointer;
+            }}
+
+        </style>
+
+    </head>
+
+    <body>
+
+        <nav>
+            <h1>🤖 AI Eğitim Sistemi</h1>
+
+            <a href="/logout">Çıkış Yap</a>
+        </nav>
+
+        <div class="hero">
+
+            <h2>Hoş Geldin {username} 🚀</h2>
+
+            <p>Modern yapay zeka eğitim platformu</p>
+
+            <div class="chat-box">
+
+                <div class="messages" id="messages">
+
+                    <div class="message bot">
+                        Merhaba 👋 Ben AI asistanıyım.
+                    </div>
+
+                </div>
+
+                <div class="input-area">
+
+                    <input type="text" id="userInput" placeholder="Mesaj yaz...">
+
+                    <button onclick="sendMessage()">
+                        Gönder
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <script>
+
+            async function sendMessage(){{
+
+                let input = document.getElementById("userInput");
+                let messages = document.getElementById("messages");
+
+                let text = input.value;
+
+                if(text.trim() === "") return;
+
+                messages.innerHTML += `
+                    <div class="message user">
+                        ${{
+                            text
+                        }}
+                    </div>
+                `;
+
+                input.value = "";
+
+                let response = await fetch("/chat",{{
+                    method:"POST",
+                    headers:{{
+                        "Content-Type":"application/json"
+                    }},
+                    body:JSON.stringify({{
+                        message:text
+                    }})
+                }});
+
+                let data = await response.json();
+
+                messages.innerHTML += `
+                    <div class="message bot">
+                        ${{
+                            data.reply
+                        }}
+                    </div>
+                `;
+
+                messages.scrollTop = messages.scrollHeight;
+            }}
+
+        </script>
+
+    </body>
+    </html>
+    """
+
+
+# CHAT API
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -191,23 +247,152 @@ def chat():
     user_message = request.json["message"].lower()
 
     if "python" in user_message:
-        reply = "Python çok güçlü bir programlama dilidir 🐍"
-
-    elif "merhaba" in user_message:
-        reply = "Merhaba 👋 Sana nasıl yardımcı olabilirim?"
+        reply = "Python güçlü bir programlama dilidir 🐍"
 
     elif "html" in user_message:
-        reply = "HTML web sitelerinin iskeletidir 🌐"
+        reply = "HTML web sitelerinin temelidir 🌐"
 
     elif "css" in user_message:
-        reply = "CSS web tasarımı için kullanılır 🎨"
+        reply = "CSS tasarım için kullanılır 🎨"
+
+    elif "merhaba" in user_message:
+        reply = "Merhaba 👋"
 
     else:
-        reply = "Mesajını aldım 🚀 AI sistemi geliştiriliyor."
+        reply = "AI sistemi geliştiriliyor 🚀"
 
-    return jsonify({
+    return {
         "reply": reply
-    })
+    }
+
+
+# REGISTER
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "INSERT INTO users(username,password) VALUES(?,?)",
+            (username,password)
+        )
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/login")
+
+    return """
+    <body style='background:#0f172a;color:white;
+    display:flex;justify-content:center;
+    align-items:center;height:100vh;font-family:Arial;'>
+
+    <form method='POST'
+    style='background:#1e293b;padding:40px;border-radius:20px;width:350px;'>
+
+        <h1>Kayıt Ol</h1><br>
+
+        <input name='username' placeholder='Kullanıcı Adı'
+        style='width:100%;padding:15px;margin-bottom:15px;'>
+
+        <input type='password' name='password'
+        placeholder='Şifre'
+        style='width:100%;padding:15px;margin-bottom:15px;'>
+
+        <button style='width:100%;padding:15px;
+        background:#38bdf8;border:none;color:white;'>
+            Kayıt Ol
+        </button>
+
+        <br><br>
+
+        <a href='/login' style='color:white;'>
+            Giriş Yap
+        </a>
+
+    </form>
+
+    </body>
+    """
+
+
+# LOGIN
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username,password)
+        )
+
+        user = cursor.fetchone()
+
+        conn.close()
+
+        if user:
+            session["user"] = username
+            return redirect("/")
+
+    return """
+    <body style='background:#0f172a;color:white;
+    display:flex;justify-content:center;
+    align-items:center;height:100vh;font-family:Arial;'>
+
+    <form method='POST'
+    style='background:#1e293b;padding:40px;border-radius:20px;width:350px;'>
+
+        <h1>Giriş Yap</h1><br>
+
+        <input name='username'
+        placeholder='Kullanıcı Adı'
+        style='width:100%;padding:15px;margin-bottom:15px;'>
+
+        <input type='password'
+        name='password'
+        placeholder='Şifre'
+        style='width:100%;padding:15px;margin-bottom:15px;'>
+
+        <button style='width:100%;padding:15px;
+        background:#38bdf8;border:none;color:white;'>
+            Giriş Yap
+        </button>
+
+        <br><br>
+
+        <a href='/register' style='color:white;'>
+            Hesap Oluştur
+        </a>
+
+    </form>
+
+    </body>
+    """
+
+
+# LOGOUT
+
+@app.route("/logout")
+def logout():
+
+    session.pop("user", None)
+
+    return redirect("/login")
 
 
 if __name__ == "__main__":
