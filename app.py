@@ -1,11 +1,12 @@
 from flask import Flask, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 
-# DATABASE
+# DATABASE OLUŞTUR
 
 conn = sqlite3.connect("users.db")
 cursor = conn.cursor()
@@ -13,7 +14,7 @@ cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
+    username TEXT UNIQUE,
     password TEXT
 )
 """)
@@ -22,7 +23,7 @@ conn.commit()
 conn.close()
 
 
-# LOGIN PAGE
+# ANA SAYFA
 
 @app.route("/")
 def home():
@@ -35,6 +36,7 @@ def home():
     return f"""
     <!DOCTYPE html>
     <html lang="tr">
+
     <head>
 
         <meta charset="UTF-8">
@@ -69,8 +71,8 @@ def home():
             }}
 
             nav a{{
-                color:white;
                 text-decoration:none;
+                color:white;
                 background:#ef4444;
                 padding:10px 20px;
                 border-radius:10px;
@@ -86,17 +88,16 @@ def home():
             }}
 
             .hero h2{{
-                font-size:60px;
+                font-size:55px;
                 margin-bottom:20px;
             }}
 
             .hero p{{
-                font-size:22px;
                 color:#cbd5e1;
+                margin-bottom:30px;
             }}
 
             .chat-box{{
-                margin-top:40px;
                 width:600px;
                 max-width:90%;
                 background:#1e293b;
@@ -112,8 +113,8 @@ def home():
 
             .message{{
                 padding:12px;
-                margin-bottom:10px;
                 border-radius:10px;
+                margin-bottom:10px;
             }}
 
             .user{{
@@ -153,16 +154,18 @@ def home():
     <body>
 
         <nav>
+
             <h1>🤖 AI Eğitim Sistemi</h1>
 
             <a href="/logout">Çıkış Yap</a>
+
         </nav>
 
         <div class="hero">
 
             <h2>Hoş Geldin {username} 🚀</h2>
 
-            <p>Modern yapay zeka eğitim platformu</p>
+            <p>AI destekli modern eğitim platformu</p>
 
             <div class="chat-box">
 
@@ -176,7 +179,8 @@ def home():
 
                 <div class="input-area">
 
-                    <input type="text" id="userInput" placeholder="Mesaj yaz...">
+                    <input type="text" id="userInput"
+                    placeholder="Mesaj yaz...">
 
                     <button onclick="sendMessage()">
                         Gönder
@@ -201,9 +205,7 @@ def home():
 
                 messages.innerHTML += `
                     <div class="message user">
-                        ${{
-                            text
-                        }}
+                        ${{text}}
                     </div>
                 `;
 
@@ -223,9 +225,7 @@ def home():
 
                 messages.innerHTML += `
                     <div class="message bot">
-                        ${{
-                            data.reply
-                        }}
+                        ${{data.reply}}
                     </div>
                 `;
 
@@ -239,7 +239,7 @@ def home():
     """
 
 
-# CHAT API
+# CHATBOT API
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -276,15 +276,24 @@ def register():
         username = request.form["username"]
         password = request.form["password"]
 
+        hashed_password = generate_password_hash(password)
+
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
 
-        cursor.execute(
-            "INSERT INTO users(username,password) VALUES(?,?)",
-            (username,password)
-        )
+        try:
 
-        conn.commit()
+            cursor.execute(
+                "INSERT INTO users(username,password) VALUES(?,?)",
+                (username, hashed_password)
+            )
+
+            conn.commit()
+
+        except:
+            conn.close()
+            return "Bu kullanıcı adı zaten mevcut."
+
         conn.close()
 
         return redirect("/login")
@@ -295,14 +304,17 @@ def register():
     align-items:center;height:100vh;font-family:Arial;'>
 
     <form method='POST'
-    style='background:#1e293b;padding:40px;border-radius:20px;width:350px;'>
+    style='background:#1e293b;padding:40px;
+    border-radius:20px;width:350px;'>
 
         <h1>Kayıt Ol</h1><br>
 
-        <input name='username' placeholder='Kullanıcı Adı'
+        <input name='username'
+        placeholder='Kullanıcı Adı'
         style='width:100%;padding:15px;margin-bottom:15px;'>
 
-        <input type='password' name='password'
+        <input type='password'
+        name='password'
         placeholder='Şifre'
         style='width:100%;padding:15px;margin-bottom:15px;'>
 
@@ -337,17 +349,22 @@ def login():
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username,password)
+            "SELECT * FROM users WHERE username=?",
+            (username,)
         )
 
         user = cursor.fetchone()
 
         conn.close()
 
-        if user:
+        if user and check_password_hash(user[2], password):
+
             session["user"] = username
+
             return redirect("/")
+
+        else:
+            return "Kullanıcı adı veya şifre yanlış."
 
     return """
     <body style='background:#0f172a;color:white;
@@ -355,7 +372,8 @@ def login():
     align-items:center;height:100vh;font-family:Arial;'>
 
     <form method='POST'
-    style='background:#1e293b;padding:40px;border-radius:20px;width:350px;'>
+    style='background:#1e293b;padding:40px;
+    border-radius:20px;width:350px;'>
 
         <h1>Giriş Yap</h1><br>
 
