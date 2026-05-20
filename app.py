@@ -23,8 +23,6 @@ conn.commit()
 conn.close()
 
 
-# ANA SAYFA
-
 @app.route("/")
 def home():
 
@@ -42,7 +40,7 @@ def home():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>AI Eğitim Sistemi</title>
+        <title>Öğrenci Paneli</title>
 
         <style>
 
@@ -56,57 +54,108 @@ def home():
             body{{
                 background:#0f172a;
                 color:white;
+                display:flex;
             }}
 
-            nav{{
+            .sidebar{{
+                width:260px;
+                height:100vh;
                 background:#1e293b;
-                padding:20px;
+                padding:30px 20px;
+            }}
+
+            .sidebar h1{{
+                color:#38bdf8;
+                margin-bottom:40px;
+            }}
+
+            .sidebar a{{
+                display:block;
+                color:white;
+                text-decoration:none;
+                margin-bottom:20px;
+                padding:12px;
+                border-radius:10px;
+                transition:0.3s;
+            }}
+
+            .sidebar a:hover{{
+                background:#334155;
+            }}
+
+            .main{{
+                flex:1;
+                padding:30px;
+            }}
+
+            .topbar{{
                 display:flex;
                 justify-content:space-between;
                 align-items:center;
-            }}
-
-            nav h1{{
-                color:#38bdf8;
-            }}
-
-            nav a{{
-                text-decoration:none;
-                color:white;
-                background:#ef4444;
-                padding:10px 20px;
-                border-radius:10px;
-            }}
-
-            .hero{{
-                height:90vh;
-                display:flex;
-                flex-direction:column;
-                justify-content:center;
-                align-items:center;
-                text-align:center;
-            }}
-
-            .hero h2{{
-                font-size:55px;
-                margin-bottom:20px;
-            }}
-
-            .hero p{{
-                color:#cbd5e1;
                 margin-bottom:30px;
             }}
 
+            .topbar h2{{
+                font-size:35px;
+            }}
+
+            .cards{{
+                display:grid;
+                grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+                gap:20px;
+                margin-bottom:40px;
+            }}
+
+            .card{{
+                background:#1e293b;
+                padding:25px;
+                border-radius:20px;
+            }}
+
+            .card h3{{
+                margin-bottom:15px;
+                color:#38bdf8;
+            }}
+
+            .progress{{
+                background:#334155;
+                height:12px;
+                border-radius:20px;
+                overflow:hidden;
+                margin-top:10px;
+            }}
+
+            .progress div{{
+                height:100%;
+                background:#38bdf8;
+            }}
+
+            .courses{{
+                display:grid;
+                grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+                gap:20px;
+                margin-bottom:40px;
+            }}
+
+            .course{{
+                background:#1e293b;
+                padding:25px;
+                border-radius:20px;
+            }}
+
+            .course h3{{
+                margin-bottom:15px;
+                color:#38bdf8;
+            }}
+
             .chat-box{{
-                width:600px;
-                max-width:90%;
                 background:#1e293b;
                 padding:20px;
                 border-radius:20px;
             }}
 
             .messages{{
-                height:300px;
+                height:250px;
                 overflow-y:auto;
                 margin-bottom:20px;
             }}
@@ -153,33 +202,103 @@ def home():
 
     <body>
 
-        <nav>
+        <div class="sidebar">
 
-            <h1>🤖 AI Eğitim Sistemi</h1>
+            <h1>🎓 AI Eğitim</h1>
 
-            <a href="/logout">Çıkış Yap</a>
+            <a href="/">🏠 Ana Panel</a>
+            <a href="#">📚 Dersler</a>
+            <a href="#">📝 Quizler</a>
+            <a href="#">📊 İstatistik</a>
+            <a href="/logout">🚪 Çıkış Yap</a>
 
-        </nav>
+        </div>
 
-        <div class="hero">
+        <div class="main">
 
-            <h2>Hoş Geldin {username} 🚀</h2>
+            <div class="topbar">
 
-            <p>AI destekli modern eğitim platformu</p>
+                <h2>Hoş Geldin {username} 👋</h2>
+
+            </div>
+
+            <div class="cards">
+
+                <div class="card">
+                    <h3>📚 Tamamlanan Ders</h3>
+                    <h1>12</h1>
+                </div>
+
+                <div class="card">
+                    <h3>📝 Quiz Skoru</h3>
+                    <h1>89%</h1>
+                </div>
+
+                <div class="card">
+                    <h3>🔥 Günlük Seri</h3>
+                    <h1>7 Gün</h1>
+                </div>
+
+            </div>
+
+            <h2 style="margin-bottom:20px;">📘 Dersler</h2>
+
+            <div class="courses">
+
+                <div class="course">
+
+                    <h3>Python Eğitimi</h3>
+
+                    <p>İlerleme: %80</p>
+
+                    <div class="progress">
+                        <div style="width:80%;"></div>
+                    </div>
+
+                </div>
+
+                <div class="course">
+
+                    <h3>HTML & CSS</h3>
+
+                    <p>İlerleme: %65</p>
+
+                    <div class="progress">
+                        <div style="width:65%;"></div>
+                    </div>
+
+                </div>
+
+                <div class="course">
+
+                    <h3>Flask Web Geliştirme</h3>
+
+                    <p>İlerleme: %40</p>
+
+                    <div class="progress">
+                        <div style="width:40%;"></div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <h2 style="margin-bottom:20px;">🤖 AI Asistan</h2>
 
             <div class="chat-box">
 
                 <div class="messages" id="messages">
 
                     <div class="message bot">
-                        Merhaba 👋 Ben AI asistanıyım.
+                        Merhaba 👋 Sana nasıl yardımcı olabilirim?
                     </div>
 
                 </div>
 
                 <div class="input-area">
 
-                    <input type="text" id="userInput"
+                    <input type="text"
+                    id="userInput"
                     placeholder="Mesaj yaz...">
 
                     <button onclick="sendMessage()">
@@ -235,6 +354,7 @@ def home():
         </script>
 
     </body>
+
     </html>
     """
 
