@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Öğrenci Paneli</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <h1>Hoşgeldin {{ username }}</h1>
+
+    <div class="card">
+        <h2>Quiz Sistemi</h2>
+        <p>Yakında aktif olacak</p>
+    </div>
+
+    <div class="card">
+        <h2>AI Chatbot</h2>
+        <p>Yakında aktif olacak</p>
+    </div>
+
+    <a href="/logout" class="btn">
+        Çıkış Yap
+    </a>
+
+</div>
+
+</body>
+</html>

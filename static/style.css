@@ -88,3 +88,43 @@ body{
     margin-bottom:15px;
     color:#38bdf8;
 }
+.form-container{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+form{
+    background:#1e293b;
+    padding:40px;
+    border-radius:15px;
+    width:350px;
+    display:flex;
+    flex-direction:column;
+}
+
+form h1{
+    margin-bottom:20px;
+    text-align:center;
+}
+
+form input{
+    margin-bottom:15px;
+    padding:15px;
+    border:none;
+    border-radius:10px;
+}
+
+form button{
+    padding:15px;
+    border:none;
+    border-radius:10px;
+    background:#38bdf8;
+    color:white;
+    cursor:pointer;
+}
+
+.dashboard{
+    padding:50px;
+}

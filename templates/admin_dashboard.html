@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Paneli</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <h1>Admin Paneli</h1>
+
+    <h2>Hoşgeldin {{ username }}</h2>
+
+    <div class="card">
+        <h2>Kullanıcı Yönetimi</h2>
+    </div>
+
+    <div class="card">
+        <h2>Quiz Yönetimi</h2>
+    </div>
+
+    <a href="/logout" class="btn">
+        Çıkış Yap
+    </a>
+
+</div>
+
+</body>
+</html>
