@@ -3,27 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Paneli</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="dashboard">
+<div class="sidebar">
 
-    <h1>Admin Paneli</h1>
-
-    <h2>Hoşgeldin {{ username }}</h2>
-
-    <div class="card">
-        <h2>Kullanıcı Yönetimi</h2>
+    <div class="logo">
+        Admin Panel
     </div>
 
-    <div class="card">
-        <h2>Quiz Yönetimi</h2>
+    <a href="/admin">Dashboard</a>
+
+    <a href="/add_quiz">Quiz Ekle</a>
+
+    <a href="/chatbot">AI Sistem</a>
+
+    <a href="/logout">Çıkış</a>
+
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+
+        <h1>Admin Yönetim Paneli</h1>
+
     </div>
 
-    <a href="/logout" class="btn">
-        Çıkış Yap
-    </a>
+    <div class="cards">
+
+        <div class="card">
+
+            <h2>Kullanıcı Sayısı</h2>
+
+            <div class="stat">154</div>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Toplam Quiz</h2>
+
+            <div class="stat">62</div>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Aktif Öğrenci</h2>
+
+            <div class="stat">89</div>
+
+        </div>
+
+        <div class="card">
+
+            <h2>AI Kullanımı</h2>
+
+            <div class="stat">1.2K</div>
+
+        </div>
+
+    </div>
 
 </div>
 
