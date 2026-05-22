@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Başarılı</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="form-container">
+
+    <h1>Yükleme Başarılı</h1>
+
+    <p>{{ title }}</p>
+
+    <a class="btn"
+       href="{{ url_for('static',
+       filename='uploads/' + filename) }}">
+
+        PDF Aç
+
+    </a>
+
+</div>
+
+</body>
+</html>

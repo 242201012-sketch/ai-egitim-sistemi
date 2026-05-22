@@ -1,170 +1,94 @@
-from flask import Flask, render_template, request, redirect, session
-from werkzeug.security import generate_password_hash, check_password_hash
+import os
 import sqlite3
 
-app = Flask(__name__)
-app.secret_key = "supersecretkey"
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session
+)
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
 
+# ==================================================
+# APP
+# ==================================================
+
+app = Flask(__name__)
+
+app.secret_key = "super_secret_key"
+
+
+# ==================================================
+# UPLOAD
+# ==================================================
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+UPLOAD_FOLDER = os.path.join(
+    BASE_DIR,
+    "static",
+    "uploads"
+)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+# ==================================================
 # DATABASE
-def init_db():
+# ==================================================
+
+def get_db():
+
     conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+
+    return conn
+
+
+def create_tables():
+
+    conn = get_db()
+
     cursor = conn.cursor()
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users(
+
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
         role TEXT DEFAULT 'student'
+
     )
     """)
 
-    cursor.execute("""
-CREATE TABLE IF NOT EXISTS quizzes(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    question TEXT,
-    option1 TEXT,
-    option2 TEXT,
-    option3 TEXT,
-    option4 TEXT,
-    answer TEXT
-)
-""")
-
     conn.commit()
     conn.close()
 
-init_db()
 
+create_tables()
+
+
+# ==================================================
 # HOME
+# ==================================================
+
 @app.route("/")
 def home():
+
     return render_template("index.html")
 
-quiz_questions = [
-    {
-        "question": "Python hangi programlama dilidir?",
-        "options": [
-            "Web Tarayıcı",
-            "Programlama Dili",
-            "Veritabanı",
-            "İşletim Sistemi"
-        ],
-        "answer": "Programlama Dili"
-    },
 
-    {
-        "question": "HTML ne için kullanılır?",
-        "options": [
-            "Veritabanı",
-            "Web Sayfası",
-            "Oyun Motoru",
-            "Antivirüs"
-        ],
-        "answer": "Web Sayfası"
-    },
-
-    {
-        "question": "CSS ne işe yarar?",
-        "options": [
-            "Tasarım",
-            "Hackleme",
-            "Sunucu Kurma",
-            "Virüs"
-        ],
-        "answer": "Tasarım"
-    }
-]
-
-@app.route("/quiz")
-def quiz():
-
-    return render_template(
-        "quiz.html",
-        questions=quiz_questions
-    )
-
-
-@app.route("/submit_quiz", methods=["POST"])
-def submit_quiz():
-
-    score = 0
-
-    for i, q in enumerate(quiz_questions):
-
-        user_answer = request.form.get(f"question_{i}")
-
-        if user_answer == q["answer"]:
-            score += 1
-
-    username = session["user"]
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO scores(username, score) VALUES(?,?)",
-        (username, score)
-    )
-
-    conn.commit()
-    conn.close()
-
-    return render_template(
-        "quiz_result.html",
-        score=score,
-        total=len(quiz_questions)
-    )
-    
-
-@app.route("/add_quiz", methods=["GET", "POST"])
-def add_quiz():
-
-    if "user" not in session:
-        return redirect("/login")
-
-    if session["role"] != "admin":
-        return "Yetkisiz erişim"
-
-    if request.method == "POST":
-
-        question = request.form["question"]
-        option1 = request.form["option1"]
-        option2 = request.form["option2"]
-        option3 = request.form["option3"]
-        option4 = request.form["option4"]
-        answer = request.form["answer"]
-
-        conn = sqlite3.connect("database.db")
-        cursor = conn.cursor()
-
-        cursor.execute("""
-        INSERT INTO quizzes(
-            question,
-            option1,
-            option2,
-            option3,
-            option4,
-            answer
-        )
-        VALUES(?,?,?,?,?,?)
-        """, (
-            question,
-            option1,
-            option2,
-            option3,
-            option4,
-            answer
-        ))
-
-        conn.commit()
-        conn.close()
-
-        return redirect("/admin")
-
-    return render_template("add_quiz.html")
-
+# ==================================================
 # REGISTER
+# ==================================================
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
@@ -175,27 +99,38 @@ def register():
 
         hashed_password = generate_password_hash(password)
 
-        conn = sqlite3.connect("database.db")
+        conn = get_db()
         cursor = conn.cursor()
 
         try:
+
             cursor.execute(
-                "INSERT INTO users(username,password) VALUES(?,?)",
+                """
+                INSERT INTO users(username,password)
+                VALUES(?,?)
+                """,
                 (username, hashed_password)
             )
 
             conn.commit()
 
         except:
+
             return "Kullanıcı zaten mevcut"
 
-        conn.close()
+        finally:
+
+            conn.close()
 
         return redirect("/login")
 
     return render_template("register.html")
 
+
+# ==================================================
 # LOGIN
+# ==================================================
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -204,11 +139,14 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        conn = sqlite3.connect("database.db")
+        conn = get_db()
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT * FROM users WHERE username=?",
+            """
+            SELECT * FROM users
+            WHERE username=?
+            """,
             (username,)
         )
 
@@ -216,24 +154,42 @@ def login():
 
         conn.close()
 
-        if user and check_password_hash(user[2], password):
+        if user and check_password_hash(
+            user["password"],
+            password
+        ):
 
-            session["user"] = user[1]
-            session["role"] = user[3]
+            session["user"] = user["username"]
+            session["role"] = user["role"]
 
-            if user[3] == "admin":
-                return redirect("/admin")
+            if user["role"] == "admin":
+                return redirect("/admin_dashboard")
 
-            return redirect("/student")
+            return redirect("/student_dashboard")
 
-        else:
-            return "Hatalı kullanıcı adı veya şifre"
+        return "Hatalı giriş"
 
     return render_template("login.html")
 
+
+# ==================================================
+# LOGOUT
+# ==================================================
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect("/")
+
+
+# ==================================================
 # STUDENT PANEL
-@app.route("/student")
-def student():
+# ==================================================
+
+@app.route("/student_dashboard")
+def student_dashboard():
 
     if "user" not in session:
         return redirect("/login")
@@ -243,116 +199,82 @@ def student():
         username=session["user"]
     )
 
+
+# ==================================================
 # ADMIN PANEL
-@app.route("/admin")
-def admin():
+# ==================================================
+
+@app.route("/admin_dashboard")
+def admin_dashboard():
 
     if "user" not in session:
         return redirect("/login")
-
-    if session["role"] != "admin":
-        return "Yetkisiz erişim"
 
     return render_template(
         "admin_dashboard.html",
         username=session["user"]
     )
 
-# LOGOUT
-@app.route("/logout")
-def logout():
 
-    session.clear()
+# ==================================================
+# AI QUIZ
+# ==================================================
 
-    return redirect("/")
+def generate_ai_questions(topic):
 
-@app.route("/chatbot")
-def chatbot():
+    topic = topic.lower()
 
-    if "user" not in session:
-        return redirect("/login")
+    if topic == "python":
 
-    return render_template("chatbot.html")
+        return [
 
-@app.route("/ask", methods=["POST"])
-def ask():
+            {
+                "question": "Python nedir?",
 
-    user_message = request.form["message"].lower()
+                "options": [
+                    "Programlama Dili",
+                    "Tarayıcı",
+                    "Oyun",
+                    "İşletim Sistemi"
+                ],
 
-    response = "Sorunu anlayamadım."
+                "answer": "Programlama Dili"
+            },
 
-    # Matematik
-    if "matematik" in user_message:
-        response = "Matematik konusunda sana yardımcı olabilirim."
+            {
+                "question": "Python hangi alanda kullanılır?",
 
-    elif "toplama" in user_message:
-        response = "Toplama işlemi sayıları birleştirmektir."
+                "options": [
+                    "Web",
+                    "AI",
+                    "Otomasyon",
+                    "Hepsi"
+                ],
 
-    elif "python" in user_message:
-        response = "Python çok güçlü bir programlama dilidir."
+                "answer": "Hepsi"
+            }
+        ]
 
-    elif "flask" in user_message:
-        response = "Flask Python tabanlı web frameworküdür."
+    elif topic == "html":
 
-    elif "html" in user_message:
-        response = "HTML web sayfasının iskeletidir."
+        return [
 
-    elif "css" in user_message:
-        response = "CSS web tasarımını güzelleştirir."
+            {
+                "question": "HTML ne için kullanılır?",
 
-    elif "sql" in user_message:
-        response = "SQL veritabanı yönetimi için kullanılır."
+                "options": [
+                    "Web Tasarımı",
+                    "Veritabanı",
+                    "Sunucu",
+                    "Oyun"
+                ],
 
-    elif "merhaba" in user_message:
-        response = "Merhaba 👋"
+                "answer": "Web Tasarımı"
+            }
+        ]
 
-    elif "selam" in user_message:
-        response = "Selam 👋"
+    return []
 
-    return response
-
-def create_score_table():
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS scores(
-
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT,
-            score INTEGER
-
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-create_score_table()
-
-@app.route("/leaderboard")
-def leaderboard():
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT username, MAX(score)
-        FROM scores
-        GROUP BY username
-        ORDER BY MAX(score) DESC
-    """)
-
-    users = cursor.fetchall()
-
-    conn.close()
-
-    return render_template(
-        "leaderboard.html",
-        users=users
-    )
 
 @app.route("/ai_quiz")
 def ai_quiz():
@@ -367,67 +289,79 @@ def ai_quiz():
         topic=topic
     )
 
-def generate_ai_questions(topic):
 
-    topic = topic.lower()
+@app.route("/upload_lesson", methods=["GET", "POST"])
+def upload_lesson():
 
-    if topic == "python":
+    if request.method == "POST":
 
-        return [
-            {
-                "question": "Python nedir?",
-                "options": [
-                    "Programlama Dili",
-                    "Tarayıcı",
-                    "Oyun",
-                    "İşletim Sistemi"
-                ],
-                "answer": "Programlama Dili"
-            },
+        title = request.form.get("title", "")
 
-            {
-                "question": "Python hangi alanda kullanılır?",
-                "options": [
-                    "Web",
-                    "AI",
-                    "Otomasyon",
-                    "Hepsi"
-                ],
-                "answer": "Hepsi"
-            }
-        ]
+        pdf = request.files.get("pdf")
 
-    elif topic == "html":
+        if pdf is None:
+            return "PDF bulunamadı"
 
-        return [
-            {
-                "question": "HTML ne için kullanılır?",
-                "options": [
-                    "Web Tasarımı",
-                    "Veritabanı",
-                    "Hackleme",
-                    "Sunucu"
-                ],
-                "answer": "Web Tasarımı"
-            }
-        ]
+        if pdf.filename is None or pdf.filename == "":
+            return "Dosya seçilmedi"
 
-    else:
+        filename: str = str(pdf.filename)
 
-        return [
-            {
-                "question": "AI Eğitim Sistemi nedir?",
-                "options": [
-                    "Eğitim Platformu",
-                    "Oyun",
-                    "Tarayıcı",
-                    "Virüs"
-                ],
-                "answer": "Eğitim Platformu"
-            }
-        ]
+        filepath: str = os.path.join(
+            app.config["UPLOAD_FOLDER"],
+            filename
+        )
+
+        pdf.save(filepath)
+
+        return render_template(
+            "upload_success.html",
+            title=title,
+            filename=filename
+        )
+
+    return render_template("upload_lesson.html")
 
 
+# ==================================================
+# VIDEO LESSONS
+# ==================================================
+
+@app.route("/video_lessons")
+def video_lessons():
+
+    videos = [
+
+        {
+            "title": "Python Ders",
+            "url": "https://www.youtube.com/embed/kqtD5dpn9C8"
+        },
+
+        {
+            "title": "HTML Ders",
+            "url": "https://www.youtube.com/embed/qz0aGYrrlhU"
+        },
+
+        {
+            "title": "CSS Ders",
+            "url": "https://www.youtube.com/embed/1PnVor36_40"
+        }
+    ]
+
+    return render_template(
+        "video_lessons.html",
+        videos=videos
+    )
+
+
+# ==================================================
+# RUN
+# ==================================================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )
