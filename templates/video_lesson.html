@@ -3,29 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <title>Video Dersler</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="container">
-    <h1>🎥 Video Dersler</h1>
+<h1>🎥 Video Dersleri</h1>
 
-    {% for video in videos %}
-    <div class="card">
-        <h2>{{ video.title }}</h2>
+{% for video in videos %}
 
-        <iframe width="560"
-                height="315"
-                src="{{ video.url }}"
-                frameborder="0"
-                allowfullscreen>
-        </iframe>
-    </div>
-    {% endfor %}
+<h2>{{ video.title }}</h2>
 
-    <br>
-    <a href="/student_dashboard">Panele Dön</a>
-</div>
+<iframe width="560"
+        height="315"
+        src="{{ video.url }}"
+        frameborder="0"
+        allowfullscreen>
+</iframe>
+
+<hr>
+
+{% endfor %}
 
 </body>
 </html>
