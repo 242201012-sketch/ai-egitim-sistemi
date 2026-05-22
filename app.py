@@ -218,5 +218,42 @@ def chatbot():
 
     return render_template("chatbot.html")
 
+@app.route("/ask", methods=["POST"])
+def ask():
+
+    user_message = request.form["message"].lower()
+
+    response = "Sorunu anlayamadım."
+
+    # Matematik
+    if "matematik" in user_message:
+        response = "Matematik konusunda sana yardımcı olabilirim."
+
+    elif "toplama" in user_message:
+        response = "Toplama işlemi sayıları birleştirmektir."
+
+    elif "python" in user_message:
+        response = "Python çok güçlü bir programlama dilidir."
+
+    elif "flask" in user_message:
+        response = "Flask Python tabanlı web frameworküdür."
+
+    elif "html" in user_message:
+        response = "HTML web sayfasının iskeletidir."
+
+    elif "css" in user_message:
+        response = "CSS web tasarımını güzelleştirir."
+
+    elif "sql" in user_message:
+        response = "SQL veritabanı yönetimi için kullanılır."
+
+    elif "merhaba" in user_message:
+        response = "Merhaba 👋"
+
+    elif "selam" in user_message:
+        response = "Selam 👋"
+
+    return response
+
 if __name__ == "__main__":
     app.run(debug=True)
