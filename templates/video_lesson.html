@@ -2,39 +2,35 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Dersler</title>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
+    <style>
 
-<style>
+        body{
+            background:#0f172a;
+            color:white;
+            font-family:Arial;
+            padding:40px;
+        }
 
-.video-container{
-    max-width:1200px;
-    margin:auto;
-    padding:40px;
-}
+        .video-card{
+            background:#1e293b;
+            padding:20px;
+            border-radius:15px;
+            margin-bottom:30px;
+        }
 
-.video-card{
-    background:#1e293b;
-    padding:25px;
-    border-radius:20px;
-    margin-bottom:30px;
-}
+        iframe{
+            width:100%;
+            height:400px;
+            border:none;
+            border-radius:10px;
+        }
 
-iframe{
-    width:100%;
-    height:400px;
-    border:none;
-    border-radius:15px;
-}
-
-</style>
-
+    </style>
 </head>
 <body>
-
-<div class="video-container">
 
     <h1>Video Dersler</h1>
 
@@ -44,15 +40,14 @@ iframe{
 
         <h2>{{ video.title }}</h2>
 
-        <iframe src="{{ video.url }}"
-                allowfullscreen>
+        <iframe
+            src="{{ video.url }}"
+            allowfullscreen>
         </iframe>
 
     </div>
 
     {% endfor %}
-
-</div>
 
 </body>
 </html>
