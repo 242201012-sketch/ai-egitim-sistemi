@@ -19,6 +19,18 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS quizzes(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT,
+    option1 TEXT,
+    option2 TEXT,
+    option3 TEXT,
+    option4 TEXT,
+    answer TEXT
+)
+""")
+
     conn.commit()
     conn.close()
 
@@ -28,6 +40,73 @@ init_db()
 @app.route("/")
 def home():
     return render_template("index.html")
+
+@app.route("/quiz")
+def quiz():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM quizzes")
+
+    quizzes = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "quiz.html",
+        quizzes=quizzes
+    )
+
+@app.route("/add_quiz", methods=["GET", "POST"])
+def add_quiz():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    if session["role"] != "admin":
+        return "Yetkisiz erişim"
+
+    if request.method == "POST":
+
+        question = request.form["question"]
+        option1 = request.form["option1"]
+        option2 = request.form["option2"]
+        option3 = request.form["option3"]
+        option4 = request.form["option4"]
+        answer = request.form["answer"]
+
+        conn = sqlite3.connect("database.db")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+        INSERT INTO quizzes(
+            question,
+            option1,
+            option2,
+            option3,
+            option4,
+            answer
+        )
+        VALUES(?,?,?,?,?,?)
+        """, (
+            question,
+            option1,
+            option2,
+            option3,
+            option4,
+            answer
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/admin")
+
+    return render_template("add_quiz.html")
 
 # REGISTER
 @app.route("/register", methods=["GET", "POST"])
@@ -130,6 +209,14 @@ def logout():
     session.clear()
 
     return redirect("/")
+
+@app.route("/chatbot")
+def chatbot():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    return render_template("chatbot.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

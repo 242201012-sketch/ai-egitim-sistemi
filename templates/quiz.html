@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <h1>Quiz Sistemi</h1>
+
+    {% for quiz in quizzes %}
+
+    <div class="card">
+
+        <h2>{{ quiz[1] }}</h2>
+
+        <p>A) {{ quiz[2] }}</p>
+        <p>B) {{ quiz[3] }}</p>
+        <p>C) {{ quiz[4] }}</p>
+        <p>D) {{ quiz[5] }}</p>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+</body>
+</html>
