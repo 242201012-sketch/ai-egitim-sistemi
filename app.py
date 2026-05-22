@@ -1,408 +1,109 @@
-from flask import Flask, request, redirect, session
-from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+
+from flask import Flask, render_template_string, request, redirect, session
+import werkzeug.security # pyright: ignore[reportMissingImports]
+
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
+# DATABASE
+def connect_db():
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# DATABASE OLUŞTUR
+# TABLOLARI OLUŞTUR
+def create_tables():
+    conn = connect_db()
+    cursor = conn.cursor()
 
-conn = sqlite3.connect("users.db")
-cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT DEFAULT 'student'
+    )
+    """)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT
-)
-""")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quizzes(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT,
+        option1 TEXT,
+        option2 TEXT,
+        option3 TEXT,
+        option4 TEXT,
+        answer TEXT
+    )
+    """)
 
-conn.commit()
-conn.close()
+    conn.commit()
+    conn.close()
 
+create_tables()
 
+# ANA SAYFA
 @app.route("/")
 def home():
-
-    if "user" not in session:
-        return redirect("/login")
-
-    username = session["user"]
-
-    return f"""
-    <!DOCTYPE html>
-    <html lang="tr">
-
+    return render_template_string("""
+    <html>
     <head>
-
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-        <title>Öğrenci Paneli</title>
-
+        <title>AI Eğitim Platformu</title>
         <style>
-
-            *{{
-                margin:0;
-                padding:0;
-                box-sizing:border-box;
+            body{
                 font-family:Arial;
-            }}
-
-            body{{
                 background:#0f172a;
                 color:white;
-                display:flex;
-            }}
+                text-align:center;
+                padding-top:100px;
+            }
 
-            .sidebar{{
-                width:260px;
-                height:100vh;
-                background:#1e293b;
-                padding:30px 20px;
-            }}
+            h1{
+                font-size:50px;
+            }
 
-            .sidebar h1{{
-                color:#38bdf8;
-                margin-bottom:40px;
-            }}
-
-            .sidebar a{{
-                display:block;
-                color:white;
+            a{
                 text-decoration:none;
-                margin-bottom:20px;
-                padding:12px;
-                border-radius:10px;
-                transition:0.3s;
-            }}
-
-            .sidebar a:hover{{
-                background:#334155;
-            }}
-
-            .main{{
-                flex:1;
-                padding:30px;
-            }}
-
-            .topbar{{
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:30px;
-            }}
-
-            .topbar h2{{
-                font-size:35px;
-            }}
-
-            .cards{{
-                display:grid;
-                grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-                gap:20px;
-                margin-bottom:40px;
-            }}
-
-            .card{{
-                background:#1e293b;
-                padding:25px;
-                border-radius:20px;
-            }}
-
-            .card h3{{
-                margin-bottom:15px;
-                color:#38bdf8;
-            }}
-
-            .progress{{
-                background:#334155;
-                height:12px;
-                border-radius:20px;
-                overflow:hidden;
-                margin-top:10px;
-            }}
-
-            .progress div{{
-                height:100%;
-                background:#38bdf8;
-            }}
-
-            .courses{{
-                display:grid;
-                grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-                gap:20px;
-                margin-bottom:40px;
-            }}
-
-            .course{{
-                background:#1e293b;
-                padding:25px;
-                border-radius:20px;
-            }}
-
-            .course h3{{
-                margin-bottom:15px;
-                color:#38bdf8;
-            }}
-
-            .chat-box{{
-                background:#1e293b;
-                padding:20px;
-                border-radius:20px;
-            }}
-
-            .messages{{
-                height:250px;
-                overflow-y:auto;
-                margin-bottom:20px;
-            }}
-
-            .message{{
-                padding:12px;
-                border-radius:10px;
-                margin-bottom:10px;
-            }}
-
-            .user{{
                 background:#2563eb;
-            }}
-
-            .bot{{
-                background:#334155;
-            }}
-
-            .input-area{{
-                display:flex;
-            }}
-
-            input{{
-                flex:1;
-                padding:15px;
-                border:none;
-                border-radius:10px;
-                outline:none;
-            }}
-
-            button{{
-                margin-left:10px;
-                padding:15px 25px;
-                border:none;
-                border-radius:10px;
-                background:#38bdf8;
                 color:white;
-                cursor:pointer;
-            }}
+                padding:12px 25px;
+                border-radius:10px;
+                margin:10px;
+                display:inline-block;
+            }
 
+            a:hover{
+                background:#1d4ed8;
+            }
         </style>
-
     </head>
-
     <body>
 
-        <div class="sidebar">
+        <h1>AI Eğitim Platformu</h1>
 
-            <h1>🎓 AI Eğitim</h1>
-
-            <a href="/">🏠 Ana Panel</a>
-            <a href="#">📚 Dersler</a>
-            <a href="#">📝 Quizler</a>
-            <a href="#">📊 İstatistik</a>
-            <a href="/logout">🚪 Çıkış Yap</a>
-
-        </div>
-
-        <div class="main">
-
-            <div class="topbar">
-
-                <h2>Hoş Geldin {username} 👋</h2>
-
-            </div>
-
-            <div class="cards">
-
-                <div class="card">
-                    <h3>📚 Tamamlanan Ders</h3>
-                    <h1>12</h1>
-                </div>
-
-                <div class="card">
-                    <h3>📝 Quiz Skoru</h3>
-                    <h1>89%</h1>
-                </div>
-
-                <div class="card">
-                    <h3>🔥 Günlük Seri</h3>
-                    <h1>7 Gün</h1>
-                </div>
-
-            </div>
-
-            <h2 style="margin-bottom:20px;">📘 Dersler</h2>
-
-            <div class="courses">
-
-                <div class="course">
-
-                    <h3>Python Eğitimi</h3>
-
-                    <p>İlerleme: %80</p>
-
-                    <div class="progress">
-                        <div style="width:80%;"></div>
-                    </div>
-
-                </div>
-
-                <div class="course">
-
-                    <h3>HTML & CSS</h3>
-
-                    <p>İlerleme: %65</p>
-
-                    <div class="progress">
-                        <div style="width:65%;"></div>
-                    </div>
-
-                </div>
-
-                <div class="course">
-
-                    <h3>Flask Web Geliştirme</h3>
-
-                    <p>İlerleme: %40</p>
-
-                    <div class="progress">
-                        <div style="width:40%;"></div>
-                    </div>
-
-                </div>
-
-            </div>
-
-            <h2 style="margin-bottom:20px;">🤖 AI Asistan</h2>
-
-            <div class="chat-box">
-
-                <div class="messages" id="messages">
-
-                    <div class="message bot">
-                        Merhaba 👋 Sana nasıl yardımcı olabilirim?
-                    </div>
-
-                </div>
-
-                <div class="input-area">
-
-                    <input type="text"
-                    id="userInput"
-                    placeholder="Mesaj yaz...">
-
-                    <button onclick="sendMessage()">
-                        Gönder
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <script>
-
-            async function sendMessage(){{
-
-                let input = document.getElementById("userInput");
-                let messages = document.getElementById("messages");
-
-                let text = input.value;
-
-                if(text.trim() === "") return;
-
-                messages.innerHTML += `
-                    <div class="message user">
-                        ${{text}}
-                    </div>
-                `;
-
-                input.value = "";
-
-                let response = await fetch("/chat",{{
-                    method:"POST",
-                    headers:{{
-                        "Content-Type":"application/json"
-                    }},
-                    body:JSON.stringify({{
-                        message:text
-                    }})
-                }});
-
-                let data = await response.json();
-
-                messages.innerHTML += `
-                    <div class="message bot">
-                        ${{data.reply}}
-                    </div>
-                `;
-
-                messages.scrollTop = messages.scrollHeight;
-            }}
-
-        </script>
+        <a href="/register">Kayıt Ol</a>
+        <a href="/login">Giriş Yap</a>
 
     </body>
-
     </html>
-    """
-
-
-# CHATBOT API
-
-@app.route("/chat", methods=["POST"])
-def chat():
-
-    user_message = request.json["message"].lower()
-
-    if "python" in user_message:
-        reply = "Python güçlü bir programlama dilidir 🐍"
-
-    elif "html" in user_message:
-        reply = "HTML web sitelerinin temelidir 🌐"
-
-    elif "css" in user_message:
-        reply = "CSS tasarım için kullanılır 🎨"
-
-    elif "merhaba" in user_message:
-        reply = "Merhaba 👋"
-
-    else:
-        reply = "AI sistemi geliştiriliyor 🚀"
-
-    return {
-        "reply": reply
-    }
-
+    """)
 
 # REGISTER
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
     if request.method == "POST":
-
         username = request.form["username"]
         password = request.form["password"]
 
-        hashed_password = generate_password_hash(password)
+        hashed_password = werkzeug.security.generate_password_hash(password)
 
-        conn = sqlite3.connect("users.db")
+        conn = connect_db()
         cursor = conn.cursor()
 
         try:
-
             cursor.execute(
                 "INSERT INTO users(username,password) VALUES(?,?)",
                 (username, hashed_password)
@@ -410,53 +111,23 @@ def register():
 
             conn.commit()
 
+            return redirect("/login")
+
         except:
-            conn.close()
-            return "Bu kullanıcı adı zaten mevcut."
+            return "Bu kullanıcı zaten var."
 
-        conn.close()
+    return render_template_string("""
+    <h1>Kayıt Ol</h1>
 
-        return redirect("/login")
+    <form method="POST">
+        <input type="text" name="username" placeholder="Kullanıcı Adı"><br><br>
+        <input type="password" name="password" placeholder="Şifre"><br><br>
 
-    return """
-    <body style='background:#0f172a;color:white;
-    display:flex;justify-content:center;
-    align-items:center;height:100vh;font-family:Arial;'>
-
-    <form method='POST'
-    style='background:#1e293b;padding:40px;
-    border-radius:20px;width:350px;'>
-
-        <h1>Kayıt Ol</h1><br>
-
-        <input name='username'
-        placeholder='Kullanıcı Adı'
-        style='width:100%;padding:15px;margin-bottom:15px;'>
-
-        <input type='password'
-        name='password'
-        placeholder='Şifre'
-        style='width:100%;padding:15px;margin-bottom:15px;'>
-
-        <button style='width:100%;padding:15px;
-        background:#38bdf8;border:none;color:white;'>
-            Kayıt Ol
-        </button>
-
-        <br><br>
-
-        <a href='/login' style='color:white;'>
-            Giriş Yap
-        </a>
-
+        <button>Kayıt Ol</button>
     </form>
-
-    </body>
-    """
-
+    """)
 
 # LOGIN
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -465,7 +136,7 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        conn = sqlite3.connect("users.db")
+        conn = connect_db()
         cursor = conn.cursor()
 
         cursor.execute(
@@ -475,63 +146,167 @@ def login():
 
         user = cursor.fetchone()
 
-        conn.close()
+        if user and werkzeug.security.check_password_hash(user["password"], password):
 
-        if user and check_password_hash(user[2], password):
+            session["user"] = user["username"]
+            session["role"] = user["role"]
 
-            session["user"] = username
+            if user["role"] == "admin":
+                return redirect("/admin")
 
-            return redirect("/")
+            return redirect("/student")
 
         else:
-            return "Kullanıcı adı veya şifre yanlış."
+            return "Hatalı giriş."
 
-    return """
-    <body style='background:#0f172a;color:white;
-    display:flex;justify-content:center;
-    align-items:center;height:100vh;font-family:Arial;'>
+    return render_template_string("""
+    <h1>Giriş Yap</h1>
 
-    <form method='POST'
-    style='background:#1e293b;padding:40px;
-    border-radius:20px;width:350px;'>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Kullanıcı Adı"><br><br>
+        <input type="password" name="password" placeholder="Şifre"><br><br>
 
-        <h1>Giriş Yap</h1><br>
-
-        <input name='username'
-        placeholder='Kullanıcı Adı'
-        style='width:100%;padding:15px;margin-bottom:15px;'>
-
-        <input type='password'
-        name='password'
-        placeholder='Şifre'
-        style='width:100%;padding:15px;margin-bottom:15px;'>
-
-        <button style='width:100%;padding:15px;
-        background:#38bdf8;border:none;color:white;'>
-            Giriş Yap
-        </button>
-
-        <br><br>
-
-        <a href='/register' style='color:white;'>
-            Hesap Oluştur
-        </a>
-
+        <button>Giriş Yap</button>
     </form>
+    """)
 
-    </body>
+# STUDENT PANEL
+@app.route("/student")
+def student():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    return render_template_string("""
+    <h1>Öğrenci Paneli</h1>
+
+    <p>Hoş geldin {{user}}</p>
+
+    <a href="/quiz">Quiz Çöz</a><br><br>
+
+    <a href="/logout">Çıkış Yap</a>
+    """, user=session["user"])
+
+# ADMIN PANEL
+@app.route("/admin")
+def admin():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    if session["role"] != "admin":
+        return "Yetkisiz erişim"
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
+
+    html = "<h1>Admin Paneli</h1>"
+
+    html += "<h3>Kullanıcılar</h3>"
+
+    for user in users:
+        html += f"<p>{user['username']} - {user['role']}</p>"
+
+    html += """
+    <br>
+    <a href="/add_quiz">Quiz Ekle</a><br><br>
+    <a href="/logout">Çıkış Yap</a>
     """
 
+    return html
+
+# QUIZ EKLE
+@app.route("/add_quiz", methods=["GET", "POST"])
+def add_quiz():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    if session["role"] != "admin":
+        return "Yetkisiz erişim"
+
+    if request.method == "POST":
+
+        question = request.form["question"]
+        option1 = request.form["option1"]
+        option2 = request.form["option2"]
+        option3 = request.form["option3"]
+        option4 = request.form["option4"]
+        answer = request.form["answer"]
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+        INSERT INTO quizzes(question,option1,option2,option3,option4,answer)
+        VALUES(?,?,?,?,?,?)
+        """, (question, option1, option2, option3, option4, answer))
+
+        conn.commit()
+
+        return redirect("/admin")
+
+    return render_template_string("""
+    <h1>Quiz Ekle</h1>
+
+    <form method="POST">
+
+        <input name="question" placeholder="Soru"><br><br>
+
+        <input name="option1" placeholder="Şık 1"><br><br>
+        <input name="option2" placeholder="Şık 2"><br><br>
+        <input name="option3" placeholder="Şık 3"><br><br>
+        <input name="option4" placeholder="Şık 4"><br><br>
+
+        <input name="answer" placeholder="Doğru Cevap"><br><br>
+
+        <button>Kaydet</button>
+
+    </form>
+    """)
+
+# QUIZ SAYFASI
+@app.route("/quiz")
+def quiz():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM quizzes")
+    quizzes = cursor.fetchall()
+
+    html = "<h1>Quizler</h1>"
+
+    for q in quizzes:
+
+        html += f"""
+        <div style='border:1px solid gray;padding:20px;margin:20px'>
+            <h3>{q['question']}</h3>
+
+            <p>A) {q['option1']}</p>
+            <p>B) {q['option2']}</p>
+            <p>C) {q['option3']}</p>
+            <p>D) {q['option4']}</p>
+        </div>
+        """
+
+    html += "<a href='/student'>Panele Dön</a>"
+
+    return html
 
 # LOGOUT
-
 @app.route("/logout")
 def logout():
+    session.clear()
+    return redirect("/")
 
-    session.pop("user", None)
-
-    return redirect("/login")
-
-
+# ÇALIŞTIR
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)
+
