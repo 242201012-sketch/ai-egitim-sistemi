@@ -41,24 +41,66 @@ init_db()
 def home():
     return render_template("index.html")
 
+quiz_questions = [
+    {
+        "question": "Python hangi programlama dilidir?",
+        "options": [
+            "Web Tarayıcı",
+            "Programlama Dili",
+            "Veritabanı",
+            "İşletim Sistemi"
+        ],
+        "answer": "Programlama Dili"
+    },
+
+    {
+        "question": "HTML ne için kullanılır?",
+        "options": [
+            "Veritabanı",
+            "Web Sayfası",
+            "Oyun Motoru",
+            "Antivirüs"
+        ],
+        "answer": "Web Sayfası"
+    },
+
+    {
+        "question": "CSS ne işe yarar?",
+        "options": [
+            "Tasarım",
+            "Hackleme",
+            "Sunucu Kurma",
+            "Virüs"
+        ],
+        "answer": "Tasarım"
+    }
+]
+
 @app.route("/quiz")
 def quiz():
 
-    if "user" not in session:
-        return redirect("/login")
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM quizzes")
-
-    quizzes = cursor.fetchall()
-
-    conn.close()
-
     return render_template(
         "quiz.html",
-        quizzes=quizzes
+        questions=quiz_questions
+    )
+
+
+@app.route("/submit_quiz", methods=["POST"])
+def submit_quiz():
+
+    score = 0
+
+    for i, q in enumerate(quiz_questions):
+
+        user_answer = request.form.get(f"question_{i}")
+
+        if user_answer == q["answer"]:
+            score += 1
+
+    return render_template(
+        "quiz_result.html",
+        score=score,
+        total=len(quiz_questions)
     )
 
 @app.route("/add_quiz", methods=["GET", "POST"])
