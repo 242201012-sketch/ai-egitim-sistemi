@@ -3,51 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Eğitim Sistemi</title>
+    <title>AI Eğitim Platformu</title>
 
-    <style>
-        body{
-            background:#0f172a;
-            color:white;
-            font-family:Arial;
-            text-align:center;
-            padding-top:120px;
-        }
-
-        h1{
-            font-size:55px;
-            color:#38bdf8;
-        }
-
-        p{
-            font-size:24px;
-            color:#cbd5e1;
-        }
-
-        .box{
-            background:#1e293b;
-            width:600px;
-            margin:auto;
-            padding:40px;
-            border-radius:20px;
-            box-shadow:0 0 25px rgba(0,0,0,0.5);
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
 
-<div class="box">
-    <h1>🤖 AI Eğitim Sistemi</h1>
+    <nav class="navbar">
+        <div class="logo">AI Eğitim</div>
 
-    <p>
-        Flask + Render başarıyla çalışıyor.
-    </p>
+        <div class="nav-links">
+            <a href="/">Ana Sayfa</a>
+            <a href="/login">Giriş Yap</a>
+            <a href="/register">Kayıt Ol</a>
+        </div>
+    </nav>
 
-    <p>
-        Sistem aktif.
-    </p>
-</div>
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <h1>Yeni Nesil AI Eğitim Platformu</h1>
+
+            <p>
+                Yapay zeka destekli profesyonel eğitim sistemi
+            </p>
+
+            <a href="/register" class="btn">
+                Hemen Başla
+            </a>
+
+        </div>
+
+    </section>
+
+    <section class="features">
+
+        <div class="card">
+            <h2>AI Chatbot</h2>
+            <p>Ders sorularını çözen yapay zeka sistemi</p>
+        </div>
+
+        <div class="card">
+            <h2>Quiz Sistemi</h2>
+            <p>Akıllı test ve değerlendirme sistemi</p>
+        </div>
+
+        <div class="card">
+            <h2>Premium Eğitim</h2>
+            <p>Modern ve profesyonel öğrenme deneyimi</p>
+        </div>
+
+    </section>
 
 </body>
 </html>
