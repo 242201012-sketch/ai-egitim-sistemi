@@ -354,6 +354,79 @@ def leaderboard():
         users=users
     )
 
+@app.route("/ai_quiz")
+def ai_quiz():
+
+    topic = request.args.get("topic", "python")
+
+    questions = generate_ai_questions(topic)
+
+    return render_template(
+        "ai_quiz.html",
+        questions=questions,
+        topic=topic
+    )
+
+def generate_ai_questions(topic):
+
+    topic = topic.lower()
+
+    if topic == "python":
+
+        return [
+            {
+                "question": "Python nedir?",
+                "options": [
+                    "Programlama Dili",
+                    "Tarayıcı",
+                    "Oyun",
+                    "İşletim Sistemi"
+                ],
+                "answer": "Programlama Dili"
+            },
+
+            {
+                "question": "Python hangi alanda kullanılır?",
+                "options": [
+                    "Web",
+                    "AI",
+                    "Otomasyon",
+                    "Hepsi"
+                ],
+                "answer": "Hepsi"
+            }
+        ]
+
+    elif topic == "html":
+
+        return [
+            {
+                "question": "HTML ne için kullanılır?",
+                "options": [
+                    "Web Tasarımı",
+                    "Veritabanı",
+                    "Hackleme",
+                    "Sunucu"
+                ],
+                "answer": "Web Tasarımı"
+            }
+        ]
+
+    else:
+
+        return [
+            {
+                "question": "AI Eğitim Sistemi nedir?",
+                "options": [
+                    "Eğitim Platformu",
+                    "Oyun",
+                    "Tarayıcı",
+                    "Virüs"
+                ],
+                "answer": "Eğitim Platformu"
+            }
+        ]
+
 
 
 if __name__ == "__main__":
