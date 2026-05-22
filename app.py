@@ -97,11 +97,25 @@ def submit_quiz():
         if user_answer == q["answer"]:
             score += 1
 
+    username = session["user"]
+
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO scores(username, score) VALUES(?,?)",
+        (username, score)
+    )
+
+    conn.commit()
+    conn.close()
+
     return render_template(
         "quiz_result.html",
         score=score,
         total=len(quiz_questions)
     )
+    
 
 @app.route("/add_quiz", methods=["GET", "POST"])
 def add_quiz():
@@ -296,6 +310,51 @@ def ask():
         response = "Selam 👋"
 
     return response
+
+def create_score_table():
+
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS scores(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            score INTEGER
+
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+create_score_table()
+
+@app.route("/leaderboard")
+def leaderboard():
+
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT username, MAX(score)
+        FROM scores
+        GROUP BY username
+        ORDER BY MAX(score) DESC
+    """)
+
+    users = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "leaderboard.html",
+        users=users
+    )
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
