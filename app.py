@@ -1,9 +1,9 @@
-from contextlib import redirect_stderr
+
 import sqlite3
 
-from flask import Flask, render_template, request , redirect
+from flask import Flask, render_template, request, redirect
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 app.secret_key = "secretkey"
 
 
@@ -113,7 +113,7 @@ def quiz():
 
     conn.close()
 
-    return render_template(
+    return flask.render_template(
         "quiz.html",
         questions=questions
     )
@@ -134,7 +134,7 @@ def submit_quiz():
 
     for question in questions:
 
-        user_answer = request.form.get(
+        user_answer = flask.request.form.get(
             f"question_{question['id']}"
         )
 
@@ -145,7 +145,7 @@ def submit_quiz():
 
     conn.close()
 
-    return render_template(
+    return flask.render_template(
         "result.html",
         score=score,
         total=total
@@ -153,29 +153,29 @@ def submit_quiz():
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return flask.render_template("index.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
-    if request.method == "POST":
-        return redirect("/login") # pyright: ignore[reportUndefinedVariable]
+    if flask.request.method == "POST":
+        return flask.redirect("/login") # pyright: ignore[reportUndefinedVariable]
 
-    return render_template("register.html")
+    return flask.render_template("register.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
-    if request.method == "POST":
-        return redirect("/student_dashboard") # pyright: ignore[reportUndefinedVariable]
+    if flask.request.method == "POST":
+        return flask.redirect("/student_dashboard") # pyright: ignore[reportUndefinedVariable]
 
-    return render_template("login.html")
+    return flask.render_template("login.html")
 
 
 @app.route("/student_dashboard")
 def student_dashboard():
-    return render_template("student_dashboard.html")
+    return flask.render_template("student_dashboard.html")
 
 
 @app.route("/video_lessons")
@@ -192,7 +192,7 @@ def video_lessons():
         }
     ]
 
-    return render_template(
+    return flask.render_template(
         "video_lessons.html",
         videos=videos
     )
