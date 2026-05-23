@@ -1,7 +1,7 @@
 from contextlib import redirect_stderr
 import sqlite3
 
-from flask import Flask, render_template, request # pyright: ignore[reportMissingImports]
+from flask import Flask, render_template, request , redirect
 
 app = Flask(__name__)
 app.secret_key = "secretkey"
