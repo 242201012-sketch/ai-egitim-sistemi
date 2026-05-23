@@ -153,3 +153,38 @@ def submit_quiz():
 @app.route("/")
 def home():
     return render_template("index.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    return render_template("login.html")
+
+
+@app.route("/student_dashboard")
+def student_dashboard():
+    return render_template("student_dashboard.html")
+
+
+@app.route("/video_lessons")
+def video_lessons():
+
+    videos = [
+        {
+            "title": "Python Ders 1",
+            "url": "https://www.youtube.com/embed/kqtD5dpn9C8"
+        },
+        {
+            "title": "Flask Dersleri",
+            "url": "https://www.youtube.com/embed/Z1RJmh_OqeA"
+        }
+    ]
+
+    return render_template(
+        "video_lessons.html",
+        videos=videos
+    )
