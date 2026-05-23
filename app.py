@@ -3,6 +3,9 @@ import sqlite3
 from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from gunicorn.config import User
+from sqlalchemy.sql.functions import user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -15,15 +18,30 @@ db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-class User(db.Model):
+class Quiz(db.Model):
     query = None
     id = db.Column(db.Integer, primary_key=True)
+    question = db.Column(db.String(500))
+    option1 = db.Column(db.String(200))
+    option2 = db.Column(db.String(200))
+    option3 = db.Column(db.String(200))
+    option4 = db.Column(db.String(200))
+    correct_answer = db.Column(db.String(200))
 
-    username = db.Column(db.String(100), unique=True)
+class Score(db.Model):
+    query = None
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100))
+    score = db.Column(db.Integer)
+    
+scores = Score.query.order_by(Score.score.desc()).all()
 
-    password = db.Column(db.String(200))
+quiz_count = Quiz.query.count()
+user_count = User.query.count()
 
-    role = db.Column(db.String(20))
+role = "student"
+user.role = "admin"
+db.session.commit()
 
 
 # DATABASE
@@ -55,6 +73,17 @@ def create_quiz_table():
 
 
 create_quiz_table()
+
+@app.route("/ai", methods=["GET", "POST"])
+def ai():
+    response = ""
+
+    if request.method == "POST":
+        question = request.form["question"]
+
+        response = f"AI cevabı: {question}"
+
+    return render_template("ai.html", response=response)
 
 
 # ÖRNEK SORULAR EKLE
