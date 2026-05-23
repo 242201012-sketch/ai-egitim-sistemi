@@ -3,7 +3,7 @@ import sqlite3
 
 from flask import Flask, render_template, request, redirect
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 app.secret_key = "secretkey"
 
 
@@ -145,7 +145,7 @@ def submit_quiz():
 
     conn.close()
 
-    return flask.render_template(
+    return Flask.render_template(
         "result.html",
         score=score,
         total=total
@@ -192,7 +192,7 @@ def video_lessons():
         }
     ]
 
-    return flask.render_template(
+    return Flask.render_template(
         "video_lessons.html",
         videos=videos
     )
