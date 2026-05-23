@@ -1,6 +1,7 @@
+from contextlib import redirect_stderr
 import sqlite3
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request # pyright: ignore[reportMissingImports]
 
 app = Flask(__name__)
 app.secret_key = "secretkey"
@@ -154,14 +155,21 @@ def submit_quiz():
 def home():
     return render_template("index.html")
 
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
+
+    if request.method == "POST":
+        return redirect("/login") # pyright: ignore[reportUndefinedVariable]
+
     return render_template("register.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
+    if request.method == "POST":
+        return redirect("/student_dashboard") # pyright: ignore[reportUndefinedVariable]
+
     return render_template("login.html")
 
 
