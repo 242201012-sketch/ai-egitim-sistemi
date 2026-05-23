@@ -1,5 +1,6 @@
 import sqlite3
-from flask import Flask, render_template, request, redirect, session, url_for
+
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 app.secret_key = "secretkey"
@@ -148,3 +149,7 @@ def submit_quiz():
         score=score,
         total=total
     )
+
+@app.route("/")
+def home():
+    return render_template("index.html")
