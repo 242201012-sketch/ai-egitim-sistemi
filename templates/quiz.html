@@ -2,78 +2,65 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Sistemi</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-<style>
-
-.quiz-container{
-    max-width:900px;
-    margin:auto;
-    padding:40px;
-}
-
-.question-box{
-    background:#1e293b;
-    padding:25px;
-    border-radius:20px;
-    margin-bottom:25px;
-}
-
-.option{
-    margin-top:15px;
-    background:#334155;
-    padding:15px;
-    border-radius:10px;
-}
-
-.submit-btn{
-    background:#38bdf8;
-    color:white;
-    padding:15px 30px;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-}
-
-</style>
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="quiz-container">
+<div class="container">
 
-    <h1>Quiz Sistemi</h1>
+    <h1>📝 Quiz Sistemi</h1>
 
     <form action="/submit_quiz" method="POST">
 
-        {% for q in questions %}
+        {% for question in questions %}
 
-        <div class="question-box">
+        <div class="card">
 
-            <h2>{{ q.question }}</h2>
+            <h2>{{ question.question }}</h2>
 
-            {% for option in q.options %}
-
-            <div class="option">
-
+            <label>
                 <input type="radio"
-                       name="question_{{ loop.parent.loop.index0 }}"
-                       value="{{ option }}">
+                       name="question_{{ question.id }}"
+                       value="{{ question.option1 }}">
+                {{ question.option1 }}
+            </label>
 
-                {{ option }}
+            <br><br>
 
-            </div>
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option2 }}">
+                {{ question.option2 }}
+            </label>
 
-            {% endfor %}
+            <br><br>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option3 }}">
+                {{ question.option3 }}
+            </label>
+
+            <br><br>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option4 }}">
+                {{ question.option4 }}
+            </label>
 
         </div>
 
         {% endfor %}
 
-        <button class="submit-btn">
+        <br>
+
+        <button type="submit">
             Quizi Bitir
         </button>
 
