@@ -1,9 +1,8 @@
 import sqlite3
 
 from flask import Flask, render_template, request, redirect
-from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager
 
 app = Flask(__name__)
 
