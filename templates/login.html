@@ -2,26 +2,15 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Giriş Yap</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
-
-<div class="form-container">
-
-    <form method="POST">
-
-        <h1>Giriş Yap</h1>
-
-        <input type="text" name="username" placeholder="Kullanıcı Adı" required>
-
-        <input type="password" name="password" placeholder="Şifre" required>
-
-        <button type="submit">Giriş Yap</button>
-
-    </form>
-
-</div>
 
 </body>
 </html>
