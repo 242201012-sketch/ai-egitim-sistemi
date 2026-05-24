@@ -1,7 +1,7 @@
 import sqlite3
 
 from flask import Flask, render_template, request, redirect
-from flask_sqlalchemy import SQLAlchemy
+import flask_sqlalchemy
 from flask_login import LoginManager
 from gunicorn.config import User
 from sqlalchemy.sql.functions import user
@@ -13,7 +13,7 @@ app.secret_key = "secretkey"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 
-db = SQLAlchemy(app)
+db = flask_sqlalchemy.SQLAlchemy(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
