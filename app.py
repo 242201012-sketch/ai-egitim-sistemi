@@ -34,7 +34,7 @@ class Score(db.Model):
     username = db.Column(db.String(100))
     score = db.Column(db.Integer)
     
-scores = Score.query.order_by(Score.score.desc()).all()
+
 
 quiz_count = Quiz.query.count()
 user_count = User.query.count()
@@ -200,7 +200,8 @@ def submit_quiz():
     )
 @app.route("/")
 def home():
-    return render_template("index.html")
+    scores = Score.query.order_by(Score.score.desc()).all()
+    return render_template("index.html", scores=scores)
 
 
 @app.route("/register", methods=["GET", "POST"])
