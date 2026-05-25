@@ -1,21 +1,7 @@
-import os
 import sqlite3
-
-
-import SQLAlchemy
-from flask import Flask, render_template, request, redirect, session
-
 
 from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
-
-from flask_sqlalchemy import SQLAlchemy
-from flask_sqlalchemy.model import DefaultMeta
-import os
-import sqlite3
-
-import SQLAlchemy
-from flask import Flask, render_template, request, redirect, session
 from flask_login import LoginManager
 from flask_sqlalchemy.model import DefaultMeta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -80,7 +66,6 @@ class Quiz(db.Model):
     correct_answer = db.Column(db.String(200))
 
 class Score(db.Model):
-
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100))
@@ -181,6 +166,19 @@ def insert_sample_questions():
 insert_sample_questions()
 
 
+# ROUTES
+
+@app.route("/")
+def home():
+
+    scores = Score.query.order_by(
+        Score.score.desc()
+    ).all()
+
+    return render_template(
+        "index.html",
+        scores=scores
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
