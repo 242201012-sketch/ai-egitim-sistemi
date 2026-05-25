@@ -1,11 +1,10 @@
 import os
 import sqlite3
 
-from flask_sqlalchemy import SQLAlchemy
-from flask_sqlalchemy.model import DefaultMeta
-from flask import Flask, render_template, request, redirect, session
 import SQLAlchemy
+from flask import Flask, render_template, request, redirect, session
 from flask_login import LoginManager
+from flask_sqlalchemy.model import DefaultMeta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
