@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>📝 Quiz Sistemi</h1>
+
+    <form action="/submit_quiz" method="POST">
+
+        {% for question in questions %}
+
+        <div class="card">
+
+            <h2>{{ question.question }}</h2>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option1 }}">
+                {{ question.option1 }}
+            </label>
+
+            <br><br>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option2 }}">
+                {{ question.option2 }}
+            </label>
+
+            <br><br>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option3 }}">
+                {{ question.option3 }}
+            </label>
+
+            <br><br>
+
+            <label>
+                <input type="radio"
+                       name="question_{{ question.id }}"
+                       value="{{ question.option4 }}">
+                {{ question.option4 }}
+            </label>
+
+        </div>
+
+        {% endfor %}
+
+        <br>
+
+        <button type="submit">
+            Quizi Bitir
+        </button>
+
+    </form>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ders Yükle</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="form-container">
+
+    <h1>PDF Ders Yükle</h1>
+
+    <form method="POST"
+          enctype="multipart/form-data">
+
+      <label>
+        <input type="text"
+               name="title"
+               placeholder="Ders Başlığı">
+      </label>
+
+      <input type="file"
+               name="pdf">
+
+        <button>
+            Yükle
+        </button>
+
+    </form>
+
+</div>
+
+</body>
+</html>
