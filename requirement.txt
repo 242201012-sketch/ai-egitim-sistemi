@@ -1,7 +1,0 @@
-flask
-flask_sqlalchemy
-flask_login
-gunicorn
-werkzeug
-sqlalchemy
-psycopg2-binary
