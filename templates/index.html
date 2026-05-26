@@ -4,13 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Ana Sayfa</title>
+    <title>AI Eğitim Sistemi</title>
 
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="/favicon.ico">
+
+    <style>
+        body{
+            margin:0;
+            padding:0;
+            background:#0f172a;
+            color:white;
+            font-family:Arial, sans-serif;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            height:100vh;
+        }
+
+        .container{
+            text-align:center;
+            background:#1e293b;
+            padding:40px;
+            border-radius:20px;
+            box-shadow:0 0 30px rgba(0,0,0,0.4);
+        }
+
+        h1{
+            font-size:48px;
+            color:#38bdf8;
+        }
+
+        p{
+            font-size:20px;
+            color:#cbd5e1;
+        }
+
+        .status{
+            margin-top:20px;
+            color:#22c55e;
+            font-weight:bold;
+        }
+    </style>
 </head>
 
 <body>
+
+<div class="container">
+    <h1>🤖 AI Eğitim Sistemi</h1>
+
+    <p>
+        Flask + Render başarıyla çalışıyor.
+    </p>
+
+    <div class="status">
+        Sistem Aktif ✅
+    </div>
+</div>
 
 </body>
 </html>
