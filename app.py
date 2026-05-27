@@ -1,10 +1,9 @@
+import os
 import sqlite3
 
-import SQLAlchemy
 from flask import Flask, render_template, request, redirect, session
-from flask import Flask, render_template, request, redirect, session
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.model import DefaultMeta
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -39,6 +38,7 @@ login_manager.init_app(app)
 
 class User(db.Model, metaclass=DefaultMeta):
 
+    query = None
     id = db.Column(db.Integer, primary_key=True)
 
     username = db.Column(
@@ -69,6 +69,7 @@ class Quiz(db.Model):
 
 class Score(db.Model):
 
+    query = None
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100))
     score = db.Column(db.Integer)
