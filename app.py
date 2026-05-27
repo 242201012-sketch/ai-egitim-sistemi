@@ -68,8 +68,6 @@ class Quiz(db.Model):
     correct_answer = db.Column(db.String(200))
 
 class Score(db.Model):
-
-    query = None
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100))
     score = db.Column(db.Integer)
@@ -173,15 +171,8 @@ insert_sample_questions()
 
 @app.route("/")
 def home():
-
-    scores = Score.query.order_by(
-        Score.score.desc()
-    ).all()
-
-    return render_template(
-        "index.html",
-        scores=scores
-    )
+    scores = []
+    return render_template("index.html", scores=scores)
 
 
 @app.route("/register", methods=["GET", "POST"])
