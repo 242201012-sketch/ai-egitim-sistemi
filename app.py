@@ -1,8 +1,18 @@
 import os
 import sqlite3
 
+import app
 from flask import Flask, render_template, request, redirect, session
 from flask_login import LoginManager
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.model import DefaultMeta
 from werkzeug.security import generate_password_hash, check_password_hash
