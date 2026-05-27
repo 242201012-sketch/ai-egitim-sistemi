@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import os
 from datetime import datetime, UTC
 from typing import Optional
@@ -12,6 +13,9 @@ from flask import (
     url_for,
     flash
 )
+
+from flask_sqlalchemy import SQLAlchemy
+
 from flask_login import (
     LoginManager,
     UserMixin,
@@ -20,7 +24,7 @@ from flask_login import (
     login_required,
     current_user
 )
-from flask_sqlalchemy import SQLAlchemy
+
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
@@ -33,19 +37,25 @@ from werkzeug.security import (
 app = Flask(__name__)
 
 # =========================================
-# CONFIG
+# SECRET KEY
 # =========================================
 
 app.config["SECRET_KEY"] = "supersecretkey"
 
+# =========================================
+# DATABASE CONFIG
+# =========================================
+
 database_url = os.getenv("DATABASE_URL")
 
-if database_url:
-    database_url = database_url.replace(
-        "postgres://",
-        "postgresql://",
-        1
-    )
+if database_url and database_url.strip() != "":
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql://",
+            1
+        )
 
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
@@ -74,7 +84,7 @@ login_manager.login_view = "login"
 # MODELS
 # =========================================
 
-class User(db.Model, UserMixin):
+class User(UserMixin, db.Model):
 
     __tablename__ = "users"
 
@@ -275,6 +285,7 @@ def add_score():
         username=current_user.username,
         score=score_value
     )
+
     db.session.add(new_score)
 
     db.session.commit()
@@ -298,3 +309,4 @@ with app.app_context():
 if __name__ == "__main__":
 
     app.run(debug=True)
+
