@@ -23,7 +23,7 @@ if database_url:
 else:
     database_url = "sqlite:///database.db"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 
 
 
