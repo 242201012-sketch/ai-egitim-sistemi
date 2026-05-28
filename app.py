@@ -1,45 +1,86 @@
-import sqlite3
+from __future__ import annotations
 
-import SQLAlchemy
-from flask import Flask, render_template, request, redirect, session
-from flask import Flask, render_template, request, redirect, session
+import os
+from datetime import datetime, UTC
+from typing import Optional
+
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash
+)
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    logout_user,
+    login_required
+)
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
-from flask_sqlalchemy.model import DefaultMeta
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
+# =========================================
+# APP
+# =========================================
 
 app = Flask(__name__)
 
-app.secret_key = "secretkey"
+# =========================================
+# CONFIG
+# =========================================
+
+app.config["SECRET_KEY"] = "supersecretkey"
 
 database_url = os.getenv("DATABASE_URL")
 
 if database_url:
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace(
-            "postgres://",
-            "postgresql://",
-            1
-        )
+    database_url = database_url.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+
 else:
-    database_url = "sqlite:///database.db"
-
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-
-
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+# =========================================
+# DATABASE
+# =========================================
+
 db = SQLAlchemy(app)
 
+# =========================================
+# LOGIN MANAGER
+# =========================================
+
 login_manager = LoginManager()
+
 login_manager.init_app(app)
 
+login_manager.login_view = "login"
+
+# =========================================
 # MODELS
+# =========================================
 
-class User(db.Model, metaclass=DefaultMeta):
+class User(db.Model, UserMixin):
 
-    id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = "users"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
 
     username = db.Column(
         db.String(100),
@@ -48,283 +89,212 @@ class User(db.Model, metaclass=DefaultMeta):
     )
 
     password = db.Column(
-        db.String(300),
+        db.String(255),
         nullable=False
     )
 
-    role = db.Column(
-        db.String(50),
-        default="student"
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC)
     )
 
-
-class Quiz(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    question = db.Column(db.String(500))
-    option1 = db.Column(db.String(200))
-    option2 = db.Column(db.String(200))
-    option3 = db.Column(db.String(200))
-    option4 = db.Column(db.String(200))
-    correct_answer = db.Column(db.String(200))
 
 class Score(db.Model):
 
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100))
-    score = db.Column(db.Integer)
+    __tablename__ = "scores"
 
-# SQLITE FUNCTIONS
-
-def get_db():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def create_quiz_table():
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS quizzes(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        question TEXT,
-        option1 TEXT,
-        option2 TEXT,
-        option3 TEXT,
-        option4 TEXT,
-        answer TEXT
+    id = db.Column(
+        db.Integer,
+        primary_key=True
     )
-    """)
 
-    conn.commit()
-    conn.close()
+    username = db.Column(
+        db.String(100),
+        nullable=False
+    )
 
+    score = db.Column(
+        db.Integer,
+        nullable=False
+    )
 
-create_quiz_table()
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC)
+    )
 
+# =========================================
+# USER LOADER
+# =========================================
 
-# SAMPLE QUESTIONS
+@login_manager.user_loader
+def load_user(user_id: str) -> Optional[User]:
 
-def insert_sample_questions():
+    return db.session.get(User, int(user_id))
 
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) FROM quizzes")
-    count = cursor.fetchone()[0]
-
-    if count == 0:
-
-        questions = [
-
-            (
-                "Python hangi programlama dilidir?",
-                "Frontend",
-                "Backend",
-                "Database",
-                "Design",
-                "Backend"
-            ),
-
-            (
-                "HTML ne için kullanılır?",
-                "Veritabanı",
-                "Web sayfası yapısı",
-                "Sunucu",
-                "Oyun motoru",
-                "Web sayfası yapısı"
-            ),
-
-            (
-                "CSS ne işe yarar?",
-                "Stil tasarımı",
-                "Veritabanı",
-                "API",
-                "Sunucu",
-                "Stil tasarımı"
-            )
-
-        ]
-
-        cursor.executemany("""
-        INSERT INTO quizzes(
-            question,
-            option1,
-            option2,
-            option3,
-            option4,
-            answer
-        )
-        VALUES(?,?,?,?,?,?)
-        """, questions)
-
-        conn.commit()
-
-    conn.close()
-
-
-insert_sample_questions()
-
-
-# ROUTES
+# =========================================
+# HOME
+# =========================================
 
 @app.route("/")
 def home():
 
-    scores = Score.query.order_by(
-        Score.score.desc()
-    ).all()
+    scores = (
+        db.session.query(Score)
+        .order_by(Score.score.desc())
+        .limit(10)
+        .all()
+    )
 
     return render_template(
         "index.html",
         scores=scores
     )
 
+# =========================================
+# REGISTER
+# =========================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
     if request.method == "POST":
 
-        username = request.form["username"]
+        username = request.form.get("username", "").strip()
 
-        password = generate_password_hash(
-            request.form["password"]
+        password = request.form.get("password", "").strip()
+
+        if not username or not password:
+
+            flash("Tüm alanları doldurun.")
+
+            return redirect(url_for("register"))
+
+        existing_user = (
+            db.session.query(User)
+            .filter_by(username=username)
+            .first()
         )
 
-        user = User()
+        if existing_user:
 
-        user.username = username
-        user.password = password
+            flash("Bu kullanıcı adı zaten mevcut.")
 
-        db.session.add(user)
+            return redirect(url_for("register"))
+
+        hashed_password = generate_password_hash(password)
+
+       new_user = User(
+    username=username,
+    password=hashed_password
+)
+
+        db.session.add(new_user)
+
         db.session.commit()
+
+        flash("Kayıt başarılı.")
+
+        return redirect(url_for("login"))
+
     return render_template("register.html")
 
+# =========================================
+# LOGIN
+# =========================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username", "").strip()
 
-        user = User.query.filter_by(
-            username=username
-        ).first()
+        password = request.form.get("password", "").strip()
 
-        if user and check_password_hash(
-            user.password,
-            password
-        ):
+        if not username or not password:
 
-            session["user"] = user.username
+            flash("Tüm alanları doldurun.")
 
-            return redirect("/student_dashboard")
+            return redirect(url_for("login"))
+
+        user = (
+            db.session.query(User)
+            .filter_by(username=username)
+            .first()
+        )
+
+        if user and check_password_hash(user.password, password):
+
+            login_user(user)
+
+            flash("Giriş başarılı.")
+
+            return redirect(url_for("home"))
+
+        flash("Kullanıcı adı veya şifre yanlış.")
 
     return render_template("login.html")
 
+# =========================================
+# LOGOUT
+# =========================================
 
-@app.route("/student_dashboard")
-def student_dashboard():
-    return render_template("student_dashboard.html")
+@app.route("/logout")
+@login_required
+def logout():
 
+    logout_user()
 
-@app.route("/quiz")
-def quiz():
+    flash("Çıkış yapıldı.")
 
-    conn = get_db()
-    cursor = conn.cursor()
+    return redirect(url_for("home"))
 
-    cursor.execute("SELECT * FROM quizzes")
+# =========================================
+# ADD SCORE
+# =========================================
 
-    questions = cursor.fetchall()
+@app.route("/add_score", methods=["POST"])
+@login_required
+def add_score():
 
-    conn.close()
+    score_raw = request.form.get("score", "").strip()
 
-    return render_template(
-        "quiz.html",
-        questions=questions
-    )
+    try:
 
+        score_value = int(score_raw)
 
-@app.route("/submit_quiz", methods=["POST"])
-def submit_quiz():
+    except ValueError:
 
-    conn = get_db()
-    cursor = conn.cursor()
+        flash("Geçersiz skor.")
 
-    cursor.execute("SELECT * FROM quizzes")
+        return redirect(url_for("home"))
 
-    questions = cursor.fetchall()
+   new_score = Score(
+    username=current_user.username,
+    score=score_value
+)
 
-    score = 0
+    db.session.add(new_score)
 
-    for question in questions:
+    db.session.commit()
 
-        user_answer = request.form.get(
-            f"question_{question['id']}"
-        )
+    flash("Skor kaydedildi.")
 
-        if user_answer == question["answer"]:
-            score += 1
+    return redirect(url_for("home"))
 
-    total = len(questions)
-
-    conn.close()
-
-    return render_template(
-        "result.html",
-        score=score,
-        total=total
-    )
-
-
-@app.route("/ai", methods=["GET", "POST"])
-def ai():
-
-    response = ""
-
-    if request.method == "POST":
-
-        question = request.form["question"]
-
-        response = f"AI cevabı: {question}"
-
-    return render_template(
-        "ai.html",
-        response=response
-    )
-
-
-@app.route("/video_lessons")
-def video_lessons():
-
-    videos = [
-        {
-            "title": "Python Ders 1",
-            "url": "https://www.youtube.com/embed/kqtD5dpn9C8"
-        },
-        {
-            "title": "Flask Dersleri",
-            "url": "https://www.youtube.com/embed/Z1RJmh_OqeA"
-        }
-    ]
-
-    return render_template(
-        "video_lessons.html",
-        videos=videos
-    )
-
-
-# CREATE TABLES
+# =========================================
+# CREATE DATABASE
+# =========================================
 
 with app.app_context():
+
     db.create_all()
 
+# =========================================
+# MAIN
+# =========================================
 
 if __name__ == "__main__":
+
     app.run(debug=True)
