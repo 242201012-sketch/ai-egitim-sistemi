@@ -32,6 +32,7 @@ from werkzeug.security import (
 app = Flask(__name__)
 
 # =========================================
+
 # CONFIG
 # =========================================
 
@@ -45,6 +46,27 @@ if database_url:
         "postgresql://",
         1
     )
+
+# SECRET KEY
+# =========================================
+
+app.config["SECRET_KEY"] = "supersecretkey"
+
+# =========================================
+# DATABASE CONFIG
+# =========================================
+
+database_url = os.getenv("DATABASE_URL")
+
+if database_url and database_url.strip() != "":
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace(
+            "postgres://",
+            "postgresql://",
+            1
+        )
+
 
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
@@ -73,7 +95,11 @@ login_manager.login_view = "login"
 # MODELS
 # =========================================
 
-class User(db.Model, UserMixin):
+
+
+
+class User(UserMixin, db.Model):
+
 
     __tablename__ = "users"
 
@@ -184,10 +210,14 @@ def register():
 
         hashed_password = generate_password_hash(password)
 
-       new_user = User(
+
+       
+     new_user = User(
     username=username,
     password=hashed_password
 )
+
+
 
         db.session.add(new_user)
 
@@ -262,6 +292,7 @@ def add_score():
 
     try:
 
+
         score_value = int(score_raw)
 
     except ValueError:
@@ -283,6 +314,28 @@ def add_score():
 
     return redirect(url_for("home"))
 
+
+
+        score_value = int(score_raw)
+
+    except ValueError:
+
+        flash("Geçersiz skor.")
+
+        return redirect(url_for("home"))
+
+    new_score = Score(
+    )
+
+    db.session.add(new_score)
+
+    db.session.commit()
+
+    flash("Skor kaydedildi.")
+
+    return redirect(url_for("home"))
+
+
 # =========================================
 # CREATE DATABASE
 # =========================================
@@ -297,4 +350,6 @@ with app.app_context():
 
 if __name__ == "__main__":
 
+
     app.run(debug=True)
+
