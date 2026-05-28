@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import os
 from datetime import datetime, UTC
 from typing import Optional
@@ -13,18 +12,14 @@ from flask import (
     url_for,
     flash
 )
-
-from flask_sqlalchemy import SQLAlchemy
-
 from flask_login import (
     LoginManager,
     UserMixin,
     login_user,
     logout_user,
-    login_required,
-    current_user
+    login_required
 )
-
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
@@ -196,8 +191,6 @@ def register():
         hashed_password = generate_password_hash(password)
 
         new_user = User(
-            username=username,
-            password=hashed_password
         )
 
         db.session.add(new_user)
@@ -282,8 +275,6 @@ def add_score():
         return redirect(url_for("home"))
 
     new_score = Score(
-        username=current_user.username,
-        score=score_value
     )
 
     db.session.add(new_score)
