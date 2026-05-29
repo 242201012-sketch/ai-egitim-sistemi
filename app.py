@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from flask_login import current_user
 
@@ -14,71 +13,78 @@ from flask import (
     url_for,
     flash
 )
-
 from flask_login import (
     LoginManager,
     UserMixin,
     login_user,
-    logout_user,
-    login_required,
-    current_user
+    logout_user
+
 )
-
 from flask_sqlalchemy import SQLAlchemy
-
-from sqlalchemy.exc import SQLAlchemyError
-
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
 )
 
-# =========================================================
+# =========================================
 # APP
-# =========================================================
+# =========================================
 
 app = Flask(__name__)
 
-# =========================================================
-# CONFIG
-# =========================================================
+# =========================================
 
-app.config["SECRET_KEY"] = os.getenv(
-    "SECRET_KEY",
-    "supersecretkey"
-)
+# CONFIG
+# =========================================
+
+app.config["SECRET_KEY"] = "supersecretkey"
+
+database_url = os.getenv("DATABASE_URL")
+
+if database_url:
+    database_url = database_url.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
+
+# SECRET KEY
+# =========================================
+
+app.config["SECRET_KEY"] = "supersecretkey"
+
+# =========================================
+# DATABASE CONFIG
+# =========================================
 
 database_url = os.getenv("DATABASE_URL")
 
 if database_url and database_url.strip() != "":
 
     if database_url.startswith("postgres://"):
-
         database_url = database_url.replace(
             "postgres://",
             "postgresql://",
             1
         )
 
+
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
 else:
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        "sqlite:///database.db"
-    )
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# =========================================================
+# =========================================
 # DATABASE
-# =========================================================
+# =========================================
 
 db = SQLAlchemy(app)
 
-# =========================================================
+# =========================================
 # LOGIN MANAGER
-# =========================================================
+# =========================================
 
 login_manager = LoginManager()
 
@@ -86,15 +92,15 @@ login_manager.init_app(app)
 
 login_manager.login_view = "login"
 
-login_manager.login_message = (
-    "Bu sayfaya erişmek için giriş yapmalısınız."
-)
-
-# =========================================================
+# =========================================
 # MODELS
-# =========================================================
+# =========================================
 
-class User(db.Model, UserMixin):
+
+
+
+class User(UserMixin, db.Model):
+
 
     __tablename__ = "users"
 
@@ -118,10 +124,6 @@ class User(db.Model, UserMixin):
         db.DateTime(timezone=True),
         default=lambda: datetime.now(UTC)
     )
-
-    def __repr__(self) -> str:
-
-        return f"<User {self.username}>"
 
 
 class Score(db.Model):
@@ -148,33 +150,23 @@ class Score(db.Model):
         default=lambda: datetime.now(UTC)
     )
 
-    def __repr__(self) -> str:
-
-        return f"<Score {self.username}: {self.score}>"
-
-# =========================================================
+# =========================================
 # USER LOADER
-# =========================================================
+# =========================================
 
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[User]:
 
-    try:
+    return db.session.get(User, int(user_id))
 
-        return db.session.get(User, int(user_id))
-
-    except (ValueError, SQLAlchemyError):
-
-        return None
-
-# =========================================================
+# =========================================
 # HOME
-# =========================================================
+# =========================================
 
 @app.route("/")
 def home():
 
-    top_scores = (
+    scores = (
         db.session.query(Score)
         .order_by(Score.score.desc())
         .limit(10)
@@ -183,35 +175,27 @@ def home():
 
     return render_template(
         "index.html",
-        scores=top_scores
+        scores=scores
     )
 
-# =========================================================
+# =========================================
 # REGISTER
-# =========================================================
+# =========================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
     if request.method == "POST":
 
-        username = (
-            request.form.get("username", "")
-            .strip()
-        )
+        username = request.form.get("username", "").strip()
 
-        password = (
-            request.form.get("password", "")
-            .strip()
-        )
+        password = request.form.get("password", "").strip()
 
         if not username or not password:
 
             flash("Tüm alanları doldurun.")
 
-            return redirect(
-                url_for("register")
-            )
+            return redirect(url_for("register"))
 
         existing_user = (
             db.session.query(User)
@@ -223,69 +207,45 @@ def register():
 
             flash("Bu kullanıcı adı zaten mevcut.")
 
-            return redirect(
-                url_for("register")
-            )
+            return redirect(url_for("register"))
 
-        hashed_password = (
-            generate_password_hash(password)
-        )
+        hashed_password = generate_password_hash(password)
 
         new_user = User(
             username=username,
             password=hashed_password
         )
 
-        try:
 
-            db.session.add(new_user)
 
-            db.session.commit()
+        db.session.add(new_user)
 
-            flash("Kayıt başarılı.")
+        db.session.commit()
 
-            return redirect(
-                url_for("login")
-            )
+        flash("Kayıt başarılı.")
 
-        except SQLAlchemyError:
-
-            db.session.rollback()
-
-            flash("Veritabanı hatası oluştu.")
-
-            return redirect(
-                url_for("register")
-            )
+        return redirect(url_for("login"))
 
     return render_template("register.html")
 
-# =========================================================
+# =========================================
 # LOGIN
-# =========================================================
+# =========================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
-        username = (
-            request.form.get("username", "")
-            .strip()
-        )
+        username = request.form.get("username", "").strip()
 
-        password = (
-            request.form.get("password", "")
-            .strip()
-        )
+        password = request.form.get("password", "").strip()
 
         if not username or not password:
 
             flash("Tüm alanları doldurun.")
 
-            return redirect(
-                url_for("login")
-            )
+            return redirect(url_for("login"))
 
         user = (
             db.session.query(User)
@@ -293,26 +253,21 @@ def login():
             .first()
         )
 
-        if user and check_password_hash(
-            user.password,
-            password
-        ):
+        if user and check_password_hash(user.password, password):
 
             login_user(user)
 
             flash("Giriş başarılı.")
 
-            return redirect(
-                url_for("home")
-            )
+            return redirect(url_for("home"))
 
         flash("Kullanıcı adı veya şifre yanlış.")
 
     return render_template("login.html")
 
-# =========================================================
+# =========================================
 # LOGOUT
-# =========================================================
+# =========================================
 
 @app.route("/logout")
 
@@ -323,21 +278,24 @@ def logout():
     flash("Çıkış yapıldı.")
 
     return redirect(url_for("home"))
-
-# =========================================================
+# =========================================
 # ADD SCORE
-# =========================================================
+# =========================================
 
 @app.route("/add_score", methods=["POST"])
 
 def add_score():
 
-    score_raw = (
-        request.form.get("score", "")
-        .strip()
-    )
+    score_raw = request.form.get("score", "").strip()
+
+    if not score_raw:
+
+        flash("Skor boş olamaz.")
+
+        return redirect(url_for("home"))
 
     try:
+
 
         score_value = int(score_raw)
 
@@ -345,83 +303,93 @@ def add_score():
 
         flash("Geçersiz skor.")
 
-        return redirect(
-            url_for("home")
-        )
+        return redirect(url_for("home"))
 
     new_score = Score(
         username=current_user.username,
         score=score_value
     )
-    new_score = Score(
-        username=current_user.username,
-        score=score_value
-    )
 
-    try:
+    db.session.add(new_score)
 
-        db.session.add(new_score)
+    db.session.commit()
 
-        db.session.commit()
-
-        flash("Skor kaydedildi.")
-
-    except SQLAlchemyError:
-
-        db.session.rollback()
-
-        flash("Skor kaydedilemedi.")
+    flash("Skor kaydedildi.")
 
     return redirect(url_for("home"))
 
-# =========================================================
-# TEST DATABASE
-# =========================================================
 
-@app.route("/test_db")
-def test_db():
 
-    try:
+        score_value = int(score_raw)
 
-        users = (
-            db.session.query(User)
-            .all()
-        )
+    except ValueError:
 
-        scores = (
-            db.session.query(Score)
-            .all()
-        )
+        flash("Geçersiz skor.")
 
-        return {
-            "database": "connected",
-            "users": len(users),
-            "scores": len(scores)
-        }
+        return redirect(url_for("home"))
 
-    except Exception as error:
+    new_score = Score(
+        username=current_user.username,
+        score=score_value
+    )
 
-        return {
-            "database": "error",
-            "message": str(error)
-        }
+    db.session.add(new_score)
 
-# =========================================================
+    db.session.commit()
+
+    flash("Skor kaydedildi.")
+
+    return redirect(url_for("home"))
+
+
+# =========================================
 # CREATE DATABASE
-# =========================================================
+# =========================================
 
 with app.app_context():
 
     db.create_all()
 
-# =========================================================
+@app.route("/test_db")
+def test_db():
+
+    try:
+        users = User.query.all()
+
+        return {
+            "database": "connected",
+            "user_count": len(users)
+        }
+
+    except Exception as e:
+        return {
+            "database": "error",
+            "message": str(e)
+        }
+    
+@app.route("/test_db")
+def test_db():
+
+    try:
+        users = User.query.all()
+
+        return {
+            "database": "connected",
+            "user_count": len(users)
+        }
+
+    except Exception as e:
+        return {
+            "database": "error",
+            "message": str(e)
+        }
+
+# =========================================
 # MAIN
-# =========================================================
+# =========================================
 
 if __name__ == "__main__":
 
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
+
+    app.run(debug=True)
+

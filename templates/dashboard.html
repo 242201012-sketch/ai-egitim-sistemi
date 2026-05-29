@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+</head>
+<body>
+
+<h1>Dashboard</h1>
+
+<p>Hoş geldin {{ current_user.username }}</p>
+
+<form method="POST" action="/add_score">
+
+    <label>
+        <input type="text" name="subject" placeholder="Ders">
+    </label>
+
+    <label>
+        <input type="number" name="score" placeholder="Skor">
+    </label>
+
+    <button type="submit">Skor Ekle</button>
+
+</form>
+
+<hr>
+
+<h2>Skorlarım</h2>
+
+<ul>
+{% for score in scores %}
+
+<li>
+    {{ score.subject }} - {{ score.score }}
+</li>
+
+{% endfor %}
+</ul>
+
+<a href="/logout">Çıkış Yap</a>
+
+</body>
+</html>

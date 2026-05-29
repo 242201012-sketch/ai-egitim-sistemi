@@ -1,43 +1,30 @@
 <!DOCTYPE html>
-<html lang = "tr">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <title>Kayıt Ol</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <h1>Kayıt Ol</h1>
+<h1>Kayıt Ol</h1>
 
-    <form method="POST">
+<form method="POST">
 
-        <label>
-            <input
-                type="text"
-                name="username"
-                placeholder="Kullanıcı adı"
-                required
-            >
-        </label>
+    <label>
+        <input type="text" name="username" placeholder="Kullanıcı Adı">
+    </label>
 
-        <label>
-            <input
-                type="password"
-                name="password"
-                placeholder="Şifre"
-                required
-            >
-        </label>
+    <label>
+        <input type="password" name="password" placeholder="Şifre">
+    </label>
 
-        <button type="submit">
-            Kayıt Ol
-        </button>
+    <button type="submit">
+        Kayıt Ol
+    </button>
 
-    </form>
+</form>
 
-    <a href="{{ url_for('login') }}">
-        Giriş Yap
-    </a>
+<a href="/login">Giriş Yap</a>
 
 </body>
 </html>
