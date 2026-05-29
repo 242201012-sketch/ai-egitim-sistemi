@@ -440,6 +440,27 @@ with app.app_context():
 # MAIN
 # =========================================================
 
+@app.route("/reset_database")
+def reset_database():
+
+    try:
+
+        db.drop_all()
+
+        db.create_all()
+
+        return {
+            "status": "success",
+            "message": "Database resetlendi."
+        }
+
+    except Exception as e:
+
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 if __name__ == "__main__":
 
     app.run(
