@@ -17,8 +17,10 @@ from flask_login import (
     UserMixin,
     login_user,
     logout_user,
-    login_required
+    login_required,
+    current_user
 )
+
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import (
     generate_password_hash,
@@ -279,7 +281,6 @@ def logout():
     flash("Çıkış yapıldı.")
 
     return redirect(url_for("home"))
-
 # =========================================
 # ADD SCORE
 # =========================================
@@ -289,6 +290,12 @@ def logout():
 def add_score():
 
     score_raw = request.form.get("score", "").strip()
+
+    if not score_raw:
+
+        flash("Skor boş olamaz.")
+
+        return redirect(url_for("home"))
 
     try:
 
@@ -325,6 +332,8 @@ def add_score():
         return redirect(url_for("home"))
 
     new_score = Score(
+        username=current_user.username,
+        score=score_value
     )
 
     db.session.add(new_score)
