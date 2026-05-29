@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+from flask_login import current_user
 
 import os
 from datetime import datetime, UTC
@@ -314,7 +315,7 @@ def login():
 # =========================================================
 
 @app.route("/logout")
-@login_required
+
 def logout():
 
     logout_user()
@@ -328,7 +329,7 @@ def logout():
 # =========================================================
 
 @app.route("/add_score", methods=["POST"])
-@login_required
+
 def add_score():
 
     score_raw = (
@@ -348,6 +349,10 @@ def add_score():
             url_for("home")
         )
 
+    new_score = Score(
+        username=current_user.username,
+        score=score_value
+    )
     new_score = Score(
         username=current_user.username,
         score=score_value
