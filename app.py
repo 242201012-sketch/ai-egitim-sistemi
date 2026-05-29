@@ -1,10 +1,12 @@
-from __future__ import annotations
 
+from __future__ import annotations
+from flask_login import current_user
 
 import os
 from datetime import datetime, UTC
+from typing import Optional
 
-from flask import ( # pyright: ignore[reportMissingImports]
+from flask import (
     Flask,
     render_template,
     request,
@@ -13,9 +15,7 @@ from flask import ( # pyright: ignore[reportMissingImports]
     flash
 )
 
-from flask_sqlalchemy import SQLAlchemy # pyright: ignore[reportMissingImports]
-
-from flask_login import ( # type: ignore
+from flask_login import (
     LoginManager,
     UserMixin,
     login_user,
@@ -24,34 +24,14 @@ from flask_login import ( # type: ignore
     current_user
 )
 
-from werkzeug.security import ( # type: ignore
+from flask_sqlalchemy import SQLAlchemy
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from werkzeug.security import (
     generate_password_hash,
     check_password_hash
 )
-
-from sqlalchemy.orm import ( # type: ignore
-    DeclarativeBase,
-    Mapped,
-    mapped_column,
-    relationship
-)
-
-from sqlalchemy import ( # type: ignore
-    String,
-    Integer,
-    ForeignKey,
-    DateTime
-)
-
-# =========================================================
-# DATABASE BASE
-# =========================================================
-
-class Base(DeclarativeBase):
-    pass
-
-
-db = SQLAlchemy(model_class=Base)
 
 # =========================================================
 # APP
@@ -91,10 +71,10 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # =========================================================
-# INIT DATABASE
+# DATABASE
 # =========================================================
 
-db.init_app(app)
+db = SQLAlchemy(app)
 
 # =========================================================
 # LOGIN MANAGER
@@ -118,30 +98,25 @@ class User(db.Model, UserMixin):
 
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(
-        Integer,
+    id = db.Column(
+        db.Integer,
         primary_key=True
     )
 
-    username: Mapped[str] = mapped_column(
-        String(100),
+    username = db.Column(
+        db.String(100),
         unique=True,
         nullable=False
     )
 
-    password: Mapped[str] = mapped_column(
-        String(255),
+    password = db.Column(
+        db.String(255),
         nullable=False
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+    created_at = db.Column(
+        db.DateTime(timezone=True),
         default=lambda: datetime.now(UTC)
-    )
-
-    scores: Mapped[list["Score"]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -153,47 +128,44 @@ class Score(db.Model):
 
     __tablename__ = "scores"
 
-    id: Mapped[int] = mapped_column(
-        Integer,
+    id = db.Column(
+        db.Integer,
         primary_key=True
     )
 
-    subject: Mapped[str] = mapped_column(
-        String(100),
+    username = db.Column(
+        db.String(100),
         nullable=False
     )
 
-    score: Mapped[int] = mapped_column(
-        Integer,
+    score = db.Column(
+        db.Integer,
         nullable=False
     )
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+    created_at = db.Column(
+        db.DateTime(timezone=True),
         default=lambda: datetime.now(UTC)
-    )
-
-    user: Mapped["User"] = relationship(
-        back_populates="scores"
     )
 
     def __repr__(self) -> str:
 
-        return f"<Score {self.subject}: {self.score}>"
+        return f"<Score {self.username}: {self.score}>"
 
 # =========================================================
 # USER LOADER
 # =========================================================
 
 @login_manager.user_loader
-def load_user(user_id: str):
+def load_user(user_id: str) -> Optional[User]:
 
-    return db.session.get(User, int(user_id))
+    try:
+
+        return db.session.get(User, int(user_id))
+
+    except (ValueError, SQLAlchemyError):
+
+        return None
 
 # =========================================================
 # HOME
@@ -223,15 +195,15 @@ def register():
 
     if request.method == "POST":
 
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
+        username = (
+            request.form.get("username", "")
+            .strip()
+        )
 
-        password = request.form.get(
-            "password",
-            ""
-        ).strip()
+        password = (
+            request.form.get("password", "")
+            .strip()
+        )
 
         if not username or not password:
 
@@ -255,8 +227,8 @@ def register():
                 url_for("register")
             )
 
-        hashed_password = generate_password_hash(
-            password
+        hashed_password = (
+            generate_password_hash(password)
         )
 
         new_user = User(
@@ -264,15 +236,27 @@ def register():
             password=hashed_password
         )
 
-        db.session.add(new_user)
+        try:
 
-        db.session.commit()
+            db.session.add(new_user)
 
-        flash("Kayıt başarılı.")
+            db.session.commit()
 
-        return redirect(
-            url_for("login")
-        )
+            flash("Kayıt başarılı.")
+
+            return redirect(
+                url_for("login")
+            )
+
+        except SQLAlchemyError:
+
+            db.session.rollback()
+
+            flash("Veritabanı hatası oluştu.")
+
+            return redirect(
+                url_for("register")
+            )
 
     return render_template("register.html")
 
@@ -285,15 +269,23 @@ def login():
 
     if request.method == "POST":
 
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
+        username = (
+            request.form.get("username", "")
+            .strip()
+        )
 
-        password = request.form.get(
-            "password",
-            ""
-        ).strip()
+        password = (
+            request.form.get("password", "")
+            .strip()
+        )
+
+        if not username or not password:
+
+            flash("Tüm alanları doldurun.")
+
+            return redirect(
+                url_for("login")
+            )
 
         user = (
             db.session.query(User)
@@ -311,7 +303,7 @@ def login():
             flash("Giriş başarılı.")
 
             return redirect(
-                url_for("dashboard")
+                url_for("home")
             )
 
         flash("Kullanıcı adı veya şifre yanlış.")
@@ -323,84 +315,64 @@ def login():
 # =========================================================
 
 @app.route("/logout")
-@login_required
+
 def logout():
 
     logout_user()
 
     flash("Çıkış yapıldı.")
 
-    return redirect(
-        url_for("home")
-    )
-
-# =========================================================
-# DASHBOARD
-# =========================================================
-
-@app.route("/dashboard")
-@login_required
-def dashboard():
-
-    user_scores = (
-        db.session.query(Score)
-        .filter_by(user_id=current_user.id)
-        .order_by(Score.created_at.desc())
-        .all()
-    )
-
-    return render_template(
-        "dashboard.html",
-        scores=user_scores
-    )
+    return redirect(url_for("home"))
 
 # =========================================================
 # ADD SCORE
 # =========================================================
 
 @app.route("/add_score", methods=["POST"])
-@login_required
+
 def add_score():
 
-    subject = request.form.get("subject", "").strip()
-
-    score_text = request.form.get("score", "").strip()
-
-    if not subject or not score_text:
-
-        flash("Tüm alanları doldurun.")
-
-        return redirect(
-            url_for("dashboard")
-        )
+    score_raw = (
+        request.form.get("score", "")
+        .strip()
+    )
 
     try:
 
-        score_value = int(score_text)
+        score_value = int(score_raw)
 
     except ValueError:
 
-        flash("Geçerli bir sayı girin.")
+        flash("Geçersiz skor.")
 
         return redirect(
-            url_for("dashboard")
+            url_for("home")
         )
 
     new_score = Score(
-        subject=subject,
-        score=score_value,
-        user_id=current_user.id
+        username=current_user.username,
+        score=score_value
+    )
+    new_score = Score(
+        username=current_user.username,
+        score=score_value
     )
 
-    db.session.add(new_score)
+    try:
 
-    db.session.commit()
+        db.session.add(new_score)
 
-    flash("Skor başarıyla eklendi.")
+        db.session.commit()
 
-    return redirect(
-        url_for("dashboard")
-    )
+        flash("Skor kaydedildi.")
+
+    except SQLAlchemyError:
+
+        db.session.rollback()
+
+        flash("Skor kaydedilemedi.")
+
+    return redirect(url_for("home"))
 
 # =========================================================
 # TEST DATABASE
@@ -411,14 +383,20 @@ def test_db():
 
     try:
 
-        user_count = db.session.query(User).count()
+        users = (
+            db.session.query(User)
+            .all()
+        )
 
-        score_count = db.session.query(Score).count()
+        scores = (
+            db.session.query(Score)
+            .all()
+        )
 
         return {
             "database": "connected",
-            "users": user_count,
-            "scores": score_count
+            "users": len(users),
+            "scores": len(scores)
         }
 
     except Exception as error:
@@ -447,5 +425,3 @@ if __name__ == "__main__":
         port=5000,
         debug=True
     )
-
-
