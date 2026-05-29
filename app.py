@@ -16,11 +16,9 @@ from flask_login import (
     LoginManager,
     UserMixin,
     login_user,
-    logout_user,
-    login_required,
-    current_user
-)
+    logout_user
 
+)
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import (
     generate_password_hash,
@@ -215,8 +213,7 @@ def register():
 
        
      new_user = User(
-    username=username,
-    password=hashed_password
+         password=hashed_password
 )
 
 
@@ -352,6 +349,40 @@ def add_score():
 with app.app_context():
 
     db.create_all()
+
+@app.route("/test_db")
+def test_db():
+
+    try:
+        users = User.query.all()
+
+        return {
+            "database": "connected",
+            "user_count": len(users)
+        }
+
+    except Exception as e:
+        return {
+            "database": "error",
+            "message": str(e)
+        }
+    
+@app.route("/test_db")
+def test_db():
+
+    try:
+        users = User.query.all()
+
+        return {
+            "database": "connected",
+            "user_count": len(users)
+        }
+
+    except Exception as e:
+        return {
+            "database": "error",
+            "message": str(e)
+        }
 
 # =========================================
 # MAIN
