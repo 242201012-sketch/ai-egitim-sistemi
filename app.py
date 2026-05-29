@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, UTC
 
-from flask import (
+from flask import ( # pyright: ignore[reportMissingImports]
     Flask,
     render_template,
     request,
@@ -13,9 +13,9 @@ from flask import (
     flash
 )
 
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy # pyright: ignore[reportMissingImports]
 
-from flask_login import (
+from flask_login import ( # type: ignore
     LoginManager,
     UserMixin,
     login_user,
@@ -24,19 +24,19 @@ from flask_login import (
     current_user
 )
 
-from werkzeug.security import (
+from werkzeug.security import ( # type: ignore
     generate_password_hash,
     check_password_hash
 )
 
-from sqlalchemy.orm import (
+from sqlalchemy.orm import ( # type: ignore
     DeclarativeBase,
     Mapped,
     mapped_column,
     relationship
 )
 
-from sqlalchemy import (
+from sqlalchemy import ( # type: ignore
     String,
     Integer,
     ForeignKey,
