@@ -2,63 +2,66 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liderlik Tablosu</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
-
-<style>
-
-.board{
-    max-width:900px;
-    margin:auto;
-    padding:40px;
-}
-
-.user-card{
-    background:#1e293b;
-    padding:20px;
-    border-radius:15px;
-    margin-bottom:15px;
-
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.rank{
-    font-size:25px;
-    color:#38bdf8;
-}
-
-</style>
-
 </head>
+
 <body>
 
-<div class="board">
+<div class="sidebar">
 
-    <h1>Liderlik Tablosu</h1>
-
-    {% for user in users %}
-
-    <div class="user-card">
-
-        <div>
-
-            <h2>{{ user[0] }}</h2>
-
-        </div>
-
-        <div class="rank">
-
-            {{ user[1] }} Puan
-
-        </div>
-
+    <div class="logo">
+        AI Edu
     </div>
 
-    {% endfor %}
+    <a href="/dashboard">Dashboard</a>
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/logout">Çıkış Yap</a>
+
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+        <h1>🏆 Liderlik Tablosu</h1>
+    </div>
+
+    <div class="card">
+
+        <table class="leaderboard-table">
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Kullanıcı</th>
+                    <th>Toplam Puan</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for user in leaderboard %}
+
+                <tr>
+
+                    <td>{{ loop.index }}</td>
+
+                    <td>{{ user.username }}</td>
+
+                    <td>{{ user.total_score }}</td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
 
 </div>
 

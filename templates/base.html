@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Eğitim Sistemi</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="/">Ana Sayfa</a>
+
+    {% if current_user.is_authenticated %}
+
+        <a href="/leaderboard">Leaderboard</a>
+
+        <a href="/quiz">Quiz</a>
+
+        <a href="/my_scores">Skorlarım</a>
+
+        <a href="/generate_quiz">AI Quiz</a>
+
+        <a href="/ai_teacher">AI Teacher</a>
+
+        <a href="/logout">Çıkış</a>
+
+    {% else %}
+
+        <a href="/login">Giriş</a>
+
+        <a href="/register">Kayıt</a>
+
+    {% endif %}
+
+</nav>
+
+<div class="container">
+
+{% with messages = get_flashed_messages() %}
+
+    {% if messages %}
+
+        {% for message in messages %}
+            <div class="flash">
+                {{ message }}
+            </div>
+        {% endfor %}
+
+    {% endif %}
+
+{% endwith %}
+
+{% block content %}
+{% endblock %}
+
+</div>
+
+</body>
+</html>

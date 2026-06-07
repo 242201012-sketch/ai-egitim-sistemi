@@ -2,88 +2,48 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>AI Quiz</title>
+    <title>AI Teacher</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
-
-<style>
-
-.ai-box{
-    max-width:900px;
-    margin:auto;
-    padding:40px;
-}
-
-.topic-buttons{
-    margin-bottom:30px;
-}
-
-.topic-buttons a{
-    background:#38bdf8;
-    color:white;
-    padding:12px 20px;
-    border-radius:10px;
-    text-decoration:none;
-    margin-right:10px;
-}
-
-.question-card{
-    background:#1e293b;
-    padding:25px;
-    border-radius:20px;
-    margin-bottom:20px;
-}
-
-.option{
-    margin-top:10px;
-    padding:12px;
-    background:#334155;
-    border-radius:10px;
-}
-
-</style>
-
 </head>
 <body>
 
-<div class="ai-box">
+<div class="ai-container">
 
-    <h1>AI Quiz Sistemi</h1>
+    <h1>🤖 AI Teacher</h1>
 
-    <div class="topic-buttons">
+    <p class="subtitle">
+        İstediğin konuda soru üret, öğren ve kendini test et.
+    </p>
 
-        <a href="/ai_quiz?topic=python">
-            Python
-        </a>
+    <form method="POST">
 
-        <a href="/ai_quiz?topic=html">
-            HTML
-        </a>
+        <label>
+            <input
+                type="text"
+                name="topic"
+                placeholder="Örn: Python, SQL, Veri Yapıları..."
+                required>
+        </label>
 
-        <a href="/ai_quiz?topic=css">
-            CSS
-        </a>
+        <button type="submit">
+            Quiz Üret
+        </button>
 
-    </div>
+    </form>
 
-    {% for q in questions %}
+    {% if result %}
 
-    <div class="question-card">
+    <div class="result-box">
 
-        <h2>{{ q.question }}</h2>
+        <h2>AI Cevabı</h2>
 
-        {% for option in q.options %}
-
-        <div class="option">
-            {{ option }}
-        </div>
-
-        {% endfor %}
+        <pre>{{ result }}</pre>
 
     </div>
 
-    {% endfor %}
+    {% endif %}
 
 </div>
 

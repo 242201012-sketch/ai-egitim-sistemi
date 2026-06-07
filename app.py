@@ -1,9 +1,6 @@
-from __future__ import annotations
+import json
 
-
-import os
-from datetime import datetime, UTC
-
+import requests
 from flask import (
     Flask,
     render_template,
@@ -12,46 +9,31 @@ from flask import (
     url_for,
     flash
 )
-
-from flask_sqlalchemy import SQLAlchemy
-
 from flask_login import (
     LoginManager,
-    UserMixin,
     login_user,
-    logout_user,
     login_required,
+    logout_user,
     current_user
 )
-
 from werkzeug.security import (
-    generate_password_hash,
     check_password_hash
 )
 
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    mapped_column,
-    relationship
+from game_db import configure_database
+from models import (
+    db,
+    User,
+    Score,
+    Quiz
 )
 
-from sqlalchemy import (
-    String,
-    Integer,
-    ForeignKey,
-    DateTime
+import os
+
+OLLAMA_URL = os.getenv(
+    "OLLAMA_URL",
+    "http://localhost:11434"
 )
-
-# =========================================================
-# DATABASE BASE
-# =========================================================
-
-class Base(DeclarativeBase):
-    pass
-
-
-db = SQLAlchemy(model_class=Base)
 
 # =========================================================
 # APP
@@ -59,140 +41,24 @@ db = SQLAlchemy(model_class=Base)
 
 app = Flask(__name__)
 
-# =========================================================
-# CONFIG
-# =========================================================
+configure_database(app)
 
-app.config["SECRET_KEY"] = os.getenv(
-    "SECRET_KEY",
-    "supersecretkey"
-)
-
-database_url = os.getenv("DATABASE_URL")
-
-if database_url and database_url.strip() != "":
-
-    if database_url.startswith("postgres://"):
-
-        database_url = database_url.replace(
-            "postgres://",
-            "postgresql://",
-            1
-        )
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-
-else:
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        "sqlite:///database.db"
-    )
-
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.secret_key = "super-secret-key-123"
 
 # =========================================================
-# INIT DATABASE
-# =========================================================
-
-db.init_app(app)
-
-# =========================================================
-# LOGIN MANAGER
+# LOGIN
 # =========================================================
 
 login_manager = LoginManager()
-
 login_manager.init_app(app)
-
 login_manager.login_view = "login"
-
-login_manager.login_message = (
-    "Bu sayfaya erişmek için giriş yapmalısınız."
-)
-
-# =========================================================
-# MODELS
-# =========================================================
-
-class User(db.Model, UserMixin):
-
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True
-    )
-
-    username: Mapped[str] = mapped_column(
-        String(100),
-        unique=True,
-        nullable=False
-    )
-
-    password: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC)
-    )
-
-    scores: Mapped[list["Score"]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan"
-    )
-
-    def __repr__(self) -> str:
-
-        return f"<User {self.username}>"
-
-
-class Score(db.Model):
-
-    __tablename__ = "scores"
-
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True
-    )
-
-    subject: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-
-    score: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False
-    )
-
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC)
-    )
-
-    user: Mapped["User"] = relationship(
-        back_populates="scores"
-    )
-
-    def __repr__(self) -> str:
-
-        return f"<Score {self.subject}: {self.score}>"
 
 # =========================================================
 # USER LOADER
 # =========================================================
 
 @login_manager.user_loader
-def load_user(user_id: str):
-
+def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 # =========================================================
@@ -201,18 +67,7 @@ def load_user(user_id: str):
 
 @app.route("/")
 def home():
-
-    top_scores = (
-        db.session.query(Score)
-        .order_by(Score.score.desc())
-        .limit(10)
-        .all()
-    )
-
-    return render_template(
-        "index.html",
-        scores=top_scores
-    )
+    return render_template("index.html")
 
 # =========================================================
 # REGISTER
@@ -223,56 +78,25 @@ def register():
 
     if request.method == "POST":
 
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
+        username = request.form["username"]
+        password = request.form["password"]
 
-        password = request.form.get(
-            "password",
-            ""
-        ).strip()
-
-        if not username or not password:
-
-            flash("Tüm alanları doldurun.")
-
-            return redirect(
-                url_for("register")
-            )
-
-        existing_user = (
-            db.session.query(User)
-            .filter_by(username=username)
-            .first()
-        )
+        existing_user = User.query.filter_by(
+            username=username
+        ).first()
 
         if existing_user:
-
-            flash("Bu kullanıcı adı zaten mevcut.")
-
-            return redirect(
-                url_for("register")
-            )
-
-        hashed_password = generate_password_hash(
-            password
-        )
+            flash("Bu kullanıcı zaten var.")
+            return redirect(url_for("register"))
 
         new_user = User(
-            username=username,
-            password=hashed_password
         )
 
         db.session.add(new_user)
-
         db.session.commit()
 
         flash("Kayıt başarılı.")
-
-        return redirect(
-            url_for("login")
-        )
+        return redirect(url_for("login"))
 
     return render_template("register.html")
 
@@ -285,36 +109,24 @@ def login():
 
     if request.method == "POST":
 
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
+        username = request.form["username"]
+        password = request.form["password"]
 
-        password = request.form.get(
-            "password",
-            ""
-        ).strip()
-
-        user = (
-            db.session.query(User)
-            .filter_by(username=username)
-            .first()
-        )
+        user = User.query.filter_by(
+            username=username
+        ).first()
 
         if user and check_password_hash(
             user.password,
             password
         ):
-
             login_user(user)
 
-            flash("Giriş başarılı.")
-
             return redirect(
-                url_for("dashboard")
+                url_for("leaderboard")
             )
 
-        flash("Kullanıcı adı veya şifre yanlış.")
+        flash("Hatalı giriş.")
 
     return render_template("login.html")
 
@@ -328,144 +140,269 @@ def logout():
 
     logout_user()
 
-    flash("Çıkış yapıldı.")
+    return redirect(url_for("home"))
 
-    return redirect(
-        url_for("home")
+# =========================================================
+# LEADERBOARD
+# =========================================================
+
+@app.route("/leaderboard")
+def leaderboard():
+
+    leaderboard_data = (
+        db.session.query(
+            User.username,
+            Score.subject,
+            Score.score,
+            Score.created_at
+        )
+        .join(Score)
+        .order_by(Score.score.desc())
+        .all()
+    )
+
+    return render_template(
+        "leaderboard.html",
+        leaderboard=leaderboard_data
     )
 
 # =========================================================
-# DASHBOARD
+# MY SCORES
 # =========================================================
 
-@app.route("/dashboard")
+@app.route("/my_scores")
 @login_required
-def dashboard():
+def my_scores():
 
-    user_scores = (
-        db.session.query(Score)
+    scores = (
+        Score.query
         .filter_by(user_id=current_user.id)
         .order_by(Score.created_at.desc())
         .all()
     )
 
+    total_quizzes = len(scores)
+
+    best_score = max(
+        [s.score for s in scores],
+        default=0
+    )
+
+    average_score = (
+        sum(s.score for s in scores) / total_quizzes
+        if total_quizzes > 0
+        else 0
+    )
+
     return render_template(
-        "dashboard.html",
-        scores=user_scores
+        "my_scores.html",
+        scores=scores,
+        total_quizzes=total_quizzes,
+        best_score=best_score,
+        average_score=round(average_score, 2)
     )
 
 # =========================================================
-# ADD SCORE
+# ADD QUIZ
 # =========================================================
 
-@app.route("/add_score", methods=["POST"])
+@app.route("/add_quiz", methods=["GET", "POST"])
 @login_required
-def add_score():
+def add_quiz():
 
-    subject = request.form.get("subject", "").strip()
+    if request.method == "POST":
 
-    score_text = request.form.get("score", "").strip()
-
-    if not subject or not score_text:
-
-        flash("Tüm alanları doldurun.")
-
-        return redirect(
-            url_for("dashboard")
+        quiz = Quiz(
+            question=request.form["question"],
+            option_a=request.form["a"],
+            option_b=request.form["b"],
+            option_c=request.form["c"],
+            option_d=request.form["d"],
+            correct_answer=request.form["correct"].upper()
         )
 
-    try:
+        db.session.add(quiz)
+        db.session.commit()
 
-        score_value = int(score_text)
+        flash("Soru eklendi.")
 
-    except ValueError:
+        return redirect(url_for("add_quiz"))
 
-        flash("Geçerli bir sayı girin.")
+    return render_template("add_quiz.html")
 
-        return redirect(
-            url_for("dashboard")
+# =========================================================
+# QUIZ
+# =========================================================
+
+@app.route("/quiz")
+@login_required
+def quiz():
+
+    quizzes = Quiz.query.all()
+
+    return render_template(
+        "quiz.html",
+        quizzes=quizzes
+    )
+
+# =========================================================
+# SUBMIT QUIZ
+# =========================================================
+
+@app.route("/submit_quiz", methods=["POST"])
+@login_required
+def submit_quiz():
+
+    quizzes = Quiz.query.all()
+
+    score = 0
+    results = []
+
+    for quiz in quizzes:
+
+        user_answer = request.form.get(
+            f"question_{quiz.id}"
         )
+
+        is_correct = (
+            user_answer == quiz.correct_answer
+        )
+
+        if is_correct:
+            score += 10
+
+        results.append({
+            "question": quiz.question,
+            "user_answer": user_answer,
+            "correct_answer": quiz.correct_answer,
+            "is_correct": is_correct
+        })
 
     new_score = Score(
-        subject=subject,
-        score=score_value,
-        user_id=current_user.id
+        user_id=current_user.id,
+        subject="Quiz",
+        score=score
     )
 
     db.session.add(new_score)
-
     db.session.commit()
 
-    flash("Skor başarıyla eklendi.")
-
-    return redirect(
-        url_for("dashboard")
+    return render_template(
+        "quiz_result.html",
+        score=score,
+        results=results
     )
 
 # =========================================================
-# TEST DATABASE
+# GENERATE QUIZ (OLLAMA)
 # =========================================================
 
-@app.route("/test_db")
-def test_db():
+@app.route("/generate_quiz", methods=["GET", "POST"])
+@login_required
+def generate_quiz():
 
-    try:
+    if request.method == "POST":
 
-        user_count = db.session.query(User).count()
+        topic = request.form["topic"]
 
-        score_count = db.session.query(Score).count()
+        prompt = f"""
+{topic} konusunda 5 adet çoktan seçmeli soru üret.
 
-        return {
-            "database": "connected",
-            "users": user_count,
-            "scores": score_count
-        }
+JSON formatında dön.
 
-    except Exception as error:
+SADECE JSON döndür.
+"""
 
-        return {
-            "database": "error",
-            "message": str(error)
-        }
+        response = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={
+                "model": "llama3",
+                "prompt": prompt,
+                "stream": False
+            }
+        )
+
+        try:
+
+            start = result.find("[")
+            end = result.rfind("]") + 1
+
+            questions = json.loads(
+                result[start:end]
+            )
+
+            for q in questions:
+
+                quiz = Quiz(
+                    question=q["question"],
+                    option_a=q["a"],
+                    option_b=q["b"],
+                    option_c=q["c"],
+                    option_d=q["d"],
+                    correct_answer=q["correct"].upper()
+                )
+
+                db.session.add(quiz)
+
+            db.session.commit()
+
+            flash("Quiz oluşturuldu.")
+
+            return redirect(url_for("quiz"))
+
+        except Exception as e:
+            return f"HATA: {e}"
+
+    return render_template(
+        "generate_quiz.html"
+    )
 
 # =========================================================
-# CREATE DATABASE
+# AI TEACHER
+# =========================================================
+
+@app.route("/ai_teacher", methods=["GET", "POST"])
+@login_required
+def ai_teacher():
+
+    answer = None
+
+    if request.method == "POST":
+
+        question = request.form["question"]
+
+    response = requests.post(
+        f"{OLLAMA_URL}/api/generate",
+        json={
+            "model": "llama3",
+            "prompt": question,
+            "stream": False
+        }
+    )
+
+    return render_template(
+        "ai_teacher.html",
+        answer=answer
+    )
+
+# =========================================================
+# INIT DB
 # =========================================================
 
 with app.app_context():
-
     db.create_all()
 
 # =========================================================
-# MAIN
+# RUN
 # =========================================================
-
-@app.route("/reset_database")
-def reset_database():
-
-    try:
-
-        db.drop_all()
-
-        db.create_all()
-
-        return {
-            "status": "success",
-            "message": "Database resetlendi."
-        }
-
-    except Exception as e:
-
-        return {
-            "status": "error",
-            "message": str(e)
-        }
 
 if __name__ == "__main__":
 
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
-    )
+    print("FLASK STARTING...")
 
+    app.run(
+        host="127.0.0.1",
+        port=5000,
+        debug=False,
+        use_reloader=False
+    )

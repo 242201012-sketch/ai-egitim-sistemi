@@ -2,43 +2,152 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
 
-<h1>Dashboard</h1>
+<div class="sidebar">
 
-<p>Hoş geldin {{ current_user.username }}</p>
+    <div class="logo">
+        AI Edu
+    </div>
+
+    <a href="/dashboard">Dashboard</a>
+    <a href="/leaderboard">Liderlik Tablosu</a>
+    <a href="/logout">Çıkış Yap</a>
+    <a href="/quiz" class="btn">
+    Quiz Çöz
+</a>
+    <a href="/ai_quiz">AI Quiz</a>
+
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+        <h1>Hoş Geldin {{ current_user.username }}</h1>
+    </div>
+
+    <div class="cards">
+
+    <div class="card">
+        <h2>Toplam Puan</h2>
+        <div class="stat">
+            {{ total_score }}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Ortalama</h2>
+        <div class="stat">
+            {{ average_score }}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Ders Sayısı</h2>
+        <div class="stat">
+            {{ score_count }}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Son Ders</h2>
+        <div class="stat">
+            {{ last_subject }}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Rozet</h2>
+        <div class="stat">
+            {{ badge }}
+        </div>
+    </div>
+
+</div>
+
+    <div class="card" style="margin-top:30px;">
+
+        <h2>Yeni Skor Ekle</h2>
+
+        <form method="POST" action="/add_score">
+
+            <label for="subject">
+    Ders
+</label>
 
 <form method="POST" action="/add_score">
 
-    <label>
-        <input type="text" name="subject" placeholder="Ders">
+    <label for="subject">
+        Ders Adı
     </label>
 
-    <label>
-        <input type="number" name="score" placeholder="Skor">
+    <input
+            id="subject"
+            type="text"
+            name="subject"
+            placeholder="Örn: Matematik"
+            required>
+
+    <label for="score">
+        Puan
     </label>
 
-    <button type="submit">Skor Ekle</button>
+    <input
+            id="score"
+            type="number"
+            name="score"
+            placeholder="Örn: 95"
+            required>
+
+    <button type="submit">
+        Skor Ekle
+    </button>
 
 </form>
+            <button type="submit">
+                Skor Ekle
+            </button>
 
-<hr>
+        </form>
 
-<h2>Skorlarım</h2>
+    </div>
 
-<ul>
-{% for score in scores %}
+    <div class="card" style="margin-top:30px;">
 
-<li>
-    {{ score.subject }} - {{ score.score }}
-</li>
+        <h2>Skorlarım</h2>
 
-{% endfor %}
-</ul>
+        {% if scores %}
 
-<a href="/logout">Çıkış Yap</a>
+            <ul>
+
+            {% for score in scores %}
+
+                <li>
+                    {{ score.subject }} - {{ score.score }}
+                </li>
+
+            {% endfor %}
+
+            </ul>
+
+        {% else %}
+
+            <p>Henüz skor eklenmedi.</p>
+
+        {% endif %}
+
+    </div>
+
+</div>
 
 </body>
 </html>
+
+

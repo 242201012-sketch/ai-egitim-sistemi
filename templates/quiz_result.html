@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Quiz Sonucu</h1>
+
+<h2>Skor: {{ score }}</h2>
+
+{% for result in results %}
+
+<div>
+
+    <h3>{{ result.question }}</h3>
+
+    <p>
+
+        Senin cevabın:
+        <strong>{{ result.user_answer }}</strong>
+
+    </p>
+
+    <p>
+
+        Doğru cevap:
+        <strong>{{ result.correct_answer }}</strong>
+
+    </p>
+
+    {% if result.is_correct %}
+
+        <p style="color:green;">
+            DOĞRU
+        </p>
+
+    {% else %}
+
+        <p style="color:red;">
+            YANLIŞ
+        </p>
+
+    {% endif %}
+
+</div>
+
+<hr>
+
+{% endfor %}
+
+{% endblock %}

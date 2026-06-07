@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Skorlarım</h1>
+
+<h3>Toplam Quiz: {{ total_quizzes }}</h3>
+
+<h3>En Yüksek Skor: {{ best_score }}</h3>
+
+<h3>Ortalama Skor: {{ average_score }}</h3>
+
+<table>
+
+<tr>
+    <th>Ders</th>
+    <th>Skor</th>
+    <th>Tarih</th>
+</tr>
+
+{% for score in scores %}
+
+<tr>
+
+    <td>{{ score.subject }}</td>
+
+    <td>{{ score.score }}</td>
+
+    <td>{{ score.created_at }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

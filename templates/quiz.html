@@ -2,86 +2,61 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Quiz Sistemi</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-<style>
-
-.quiz-container{
-    max-width:900px;
-    margin:auto;
-    padding:40px;
-}
-
-.question-box{
-    background:#1e293b;
-    padding:25px;
-    border-radius:20px;
-    margin-bottom:25px;
-}
-
-.option{
-    margin-top:15px;
-    background:#334155;
-    padding:15px;
-    border-radius:10px;
-}
-
-.submit-btn{
-    background:#38bdf8;
-    color:white;
-    padding:15px 30px;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-}
-
-</style>
-
+    <title>Quiz</title>
 </head>
 <body>
 
-<div class="quiz-container">
+<h1>Quiz Çöz</h1>
 
-    <h1>Quiz Sistemi</h1>
+<form method="POST" action="/submit_quiz">
 
-    <form action="/submit_quiz" method="POST">
+{% for quiz in quizzes %}
 
-        {% for q in questions %}
+    <h3>{{ quiz.question }}</h3>
 
-        <div class="question-box">
+    <label>
+        <input type="radio"
+               name="question_{{ quiz.id }}"
+               value="A">
+        {{ quiz.option_a }}
+    </label>
 
-            <h2>{{ q.question }}</h2>
+    <br>
 
-            {% for option in q.options %}
+    <label>
+        <input type="radio"
+               name="question_{{ quiz.id }}"
+               value="B">
+        {{ quiz.option_b }}
+    </label>
 
-            <div class="option">
+    <br>
 
-                <label>
-                    <input type="radio"
-                           name="question_{{ loop.parent.loop.index0 }}"
-                           value="{{ option }}">
-                </label>
+    <label>
+        <input type="radio"
+               name="question_{{ quiz.id }}"
+               value="C">
+        {{ quiz.option_c }}
+    </label>
 
-                {{ option }}
+    <br>
 
-            </div>
+    <label>
+        <input type="radio"
+               name="question_{{ quiz.id }}"
+               value="D">
+        {{ quiz.option_d }}
+    </label>
 
-            {% endfor %}
+    <hr>
 
-        </div>
+{% endfor %}
 
-        {% endfor %}
+<button type="submit">
+    Quizi Bitir
+</button>
 
-        <button class="submit-btn">
-            Quizi Bitir
-        </button>
-
-    </form>
-
-</div>
+</form>
 
 </body>
 </html>

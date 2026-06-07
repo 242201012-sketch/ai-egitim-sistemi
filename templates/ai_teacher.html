@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>AI Teacher</h1>
+
+<form method="POST">
+
+    <label>
+<textarea
+    name="question"
+    rows="6"
+    cols="80"
+    placeholder="Sorunu yaz..."
+    required>
+</textarea>
+    </label>
+
+    <br><br>
+
+    <button type="submit">
+        Sor
+    </button>
+
+</form>
+
+{% if answer %}
+
+<hr>
+
+<h2>AI Cevabı</h2>
+
+<pre>{{ answer }}</pre>
+
+{% endif %}
+
+{% endblock %}
